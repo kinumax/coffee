@@ -26,7 +26,8 @@
                             600: '#b8651e',
                             700: '#9e5a1a',
                             800: '#844e16',
-                            900: '#6a4113'
+                            900: '#6a4113',
+                            950: '#3d1f07'
                         }
                     }
                 }
@@ -137,6 +138,126 @@
                     avatar: "📘",
                     likes: 89,
                     comments: 18
+                },
+                {
+                    id: 7,
+                    title: "料理の時間",
+                    host: "田村シェフ",
+                    listeners: 678,
+                    duration: "15:30",
+                    category: "ライフスタイル",
+                    isLive: true,
+                    avatar: "🍳",
+                    likes: 234,
+                    comments: 56
+                },
+                {
+                    id: 8,
+                    title: "歴史探訪",
+                    host: "古川先生",
+                    listeners: 445,
+                    duration: "28:45",
+                    category: "学習",
+                    isLive: false,
+                    avatar: "🏛️",
+                    likes: 178,
+                    comments: 29
+                },
+                {
+                    id: 9,
+                    title: "アニメ談話",
+                    host: "アニ子",
+                    listeners: 1122,
+                    duration: "35:12",
+                    category: "トーク",
+                    isLive: false,
+                    avatar: "🎌",
+                    likes: 567,
+                    comments: 123
+                },
+                {
+                    id: 10,
+                    title: "株式投資の基本",
+                    host: "投資太郎",
+                    listeners: 789,
+                    duration: "22:18",
+                    category: "学習",
+                    isLive: true,
+                    avatar: "📈",
+                    likes: 298,
+                    comments: 87
+                },
+                {
+                    id: 11,
+                    title: "瞑想とマインドフルネス",
+                    host: "静香",
+                    listeners: 334,
+                    duration: "17:55",
+                    category: "ライフスタイル",
+                    isLive: false,
+                    avatar: "🧘",
+                    likes: 145,
+                    comments: 32
+                },
+                {
+                    id: 12,
+                    title: "映画レビュー",
+                    host: "シネマ太郎",
+                    listeners: 556,
+                    duration: "31:22",
+                    category: "トーク",
+                    isLive: true,
+                    avatar: "🎬",
+                    likes: 223,
+                    comments: 78
+                },
+                {
+                    id: 13,
+                    title: "旅行記",
+                    host: "世界一周ハナコ",
+                    listeners: 667,
+                    duration: "26:40",
+                    category: "ライフスタイル",
+                    isLive: false,
+                    avatar: "✈️",
+                    likes: 412,
+                    comments: 95
+                },
+                {
+                    id: 14,
+                    title: "プログラミング入門",
+                    host: "コード先生",
+                    listeners: 423,
+                    duration: "42:15",
+                    category: "学習",
+                    isLive: false,
+                    avatar: "💻",
+                    likes: 189,
+                    comments: 67
+                },
+                {
+                    id: 15,
+                    title: "クラシック音楽の世界",
+                    host: "バッハ子",
+                    listeners: 298,
+                    duration: "38:33",
+                    category: "音楽",
+                    isLive: true,
+                    avatar: "🎼",
+                    likes: 167,
+                    comments: 28
+                },
+                {
+                    id: 16,
+                    title: "ペットとの暮らし",
+                    host: "動物大好きユキ",
+                    listeners: 512,
+                    duration: "19:47",
+                    category: "ライフスタイル",
+                    isLive: false,
+                    avatar: "🐾",
+                    likes: 278,
+                    comments: 54
                 }
             ],
             
@@ -184,7 +305,7 @@
         function updateBodyClass() {
             const body = document.body;
             if (AppState.isDarkMode) {
-                body.className = 'bg-gradient-to-b from-coffee-900 to-coffee-700 text-coffee-50 min-h-screen transition-colors duration-300';
+                body.className = 'bg-coffee-950 text-white min-h-screen transition-colors duration-300';
             } else {
                 body.className = 'bg-gradient-to-b from-amber-50 to-orange-50 min-h-screen transition-colors duration-300';
             }
@@ -263,7 +384,8 @@
                   )
                 : AppState.featuredShows;
             
-            if (AppState.searchQuery && !filteredShows.includes(show)) {
+            // 検索クエリがある場合、フィルタリングされた番組のみを表示
+            if (AppState.searchQuery && !filteredShows.some(s => s.id === show.id)) {
                 return '';
             }
 
@@ -272,42 +394,42 @@
                 ? createIcon('Pause')
                 : createIcon('Play');
 
-            const cardBg = AppState.isDarkMode ? 'bg-coffee-800 border-coffee-600' : 'bg-white border-amber-100';
-            const titleColor = AppState.isDarkMode ? 'text-coffee-50' : 'text-gray-800';
-            const hostColor = AppState.isDarkMode ? 'text-coffee-200' : 'text-gray-600';
-            const statsColor = AppState.isDarkMode ? 'text-coffee-300' : 'text-gray-500';
-            const avatarBg = AppState.isDarkMode ? 'bg-coffee-700' : 'bg-amber-100';
-            const categoryBg = AppState.isDarkMode ? 'bg-coffee-600 text-coffee-100' : 'bg-amber-50 text-amber-600';
+            const cardBg = AppState.isDarkMode ? 'bg-black border-gray-700' : 'bg-white border-amber-100';
+            const titleColor = AppState.isDarkMode ? 'text-white' : 'text-gray-800';
+            const hostColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+            const statsColor = AppState.isDarkMode ? 'text-gray-400' : 'text-gray-500';
+            const avatarBg = AppState.isDarkMode ? 'bg-gray-800' : 'bg-amber-100';
+            const categoryBg = AppState.isDarkMode ? 'bg-gray-700 text-gray-200' : 'bg-amber-50 text-amber-600';
 
             return `
-                <div class="${cardBg} rounded-lg shadow-sm border px-3 py-2 mb-2 hover:shadow-md transition-shadow">
-                    <div class="flex items-start space-x-2">
-                        <div class="w-8 h-8 ${avatarBg} rounded-full flex items-center justify-center text-sm">
+                <div class="${cardBg} rounded-lg shadow-sm border p-3 mb-3 hover:shadow-md transition-shadow">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-10 h-10 ${avatarBg} rounded-full flex items-center justify-center text-lg">
                             ${show.avatar}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center space-x-1 mb-1">
+                            <div class="flex items-center space-x-2 mb-1">
                                 ${liveIndicator}
                                 <span class="text-xs ${categoryBg} px-2 py-0.5 rounded-full">
                                     ${show.category}
                                 </span>
                             </div>
-                            <h3 class="font-medium ${titleColor} mb-0.5 text-xs leading-tight">${show.title}</h3>
-                            <p class="text-xs ${hostColor} mb-1">by ${show.host}</p>
+                            <h3 class="font-medium ${titleColor} mb-1 text-sm leading-tight">${show.title}</h3>
+                            <p class="text-xs ${hostColor} mb-2">by ${show.host}</p>
                             <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-2 text-xs ${statsColor}">
+                                <div class="flex items-center space-x-3 text-xs ${statsColor}">
                                     <span class="flex items-center space-x-1">
                                         ${createIcon('Volume2')}
                                         <span>${formatNumber(show.listeners)}</span>
                                     </span>
                                     <span>${show.duration}</span>
                                 </div>
-                                <div class="flex items-center space-x-1">
-                                    <button onclick="handleLike(${show.id})" class="p-1 text-gray-400 hover:text-red-500 transition-colors flex items-center space-x-1">
+                                <div class="flex items-center space-x-2">
+                                    <button onclick="handleLike(${show.id})" class="text-gray-400 hover:text-red-500 transition-colors flex items-center space-x-1">
                                         ${createIcon('Heart')}
                                         <span class="text-xs">${show.likes}</span>
                                     </button>
-                                    <button onclick="handlePlay(${show.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-1 rounded-full transition-colors">
+                                    <button onclick="handlePlay(${show.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-full transition-colors">
                                         ${playButtonIcon}
                                     </button>
                                 </div>
@@ -320,7 +442,7 @@
 
         function createHeader() {
             const recordingSection = AppState.isRecording ? `
-                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 ${AppState.isDarkMode ? 'bg-red-900 border-red-700' : ''}">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 ${AppState.isDarkMode ? 'bg-red-900 border-red-700 text-red-100' : ''}">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-2">
                             <div class="flex space-x-1">
@@ -339,11 +461,11 @@
                 ? 'bg-red-500 text-white recording-pulse'
                 : 'bg-amber-500 hover:bg-amber-600 text-white';
 
-            const headerBg = AppState.isDarkMode ? 'bg-coffee-900 border-coffee-700' : 'bg-white border-amber-100';
+            const headerBg = AppState.isDarkMode ? 'bg-black border-gray-700' : 'bg-white border-amber-100';
             const titleColor = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-800';
             const iconColor = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600';
-            const inputBg = AppState.isDarkMode ? 'bg-coffee-800 border-coffee-600 text-coffee-50 placeholder-coffee-300' : 'border-amber-200';
-            const searchIconColor = AppState.isDarkMode ? 'text-coffee-400' : 'text-gray-400';
+            const inputBg = AppState.isDarkMode ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' : 'border-amber-200';
+            const searchIconColor = AppState.isDarkMode ? 'text-gray-400' : 'text-gray-400';
 
             return `
                 <div class="${headerBg} shadow-sm border-b p-4">
@@ -353,7 +475,7 @@
                             <h1 class="text-2xl font-bold ${titleColor}">Coffee</h1>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <button onclick="handleDarkModeToggle()" class="p-2 rounded-full ${AppState.isDarkMode ? 'text-coffee-300 hover:text-coffee-100' : 'text-gray-600 hover:text-gray-800'} transition-colors">
+                            <button onclick="handleDarkModeToggle()" class="p-2 rounded-full ${AppState.isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-800'} transition-colors">
                                 ${AppState.isDarkMode ? createIcon('Sun') : createIcon('Moon')}
                             </button>
                             <button onclick="handleRecord()" class="p-3 rounded-full transition-all ${recordButtonClass}">
@@ -381,12 +503,12 @@
         }
 
         function createMainContent() {
-            const titleColor = AppState.isDarkMode ? 'text-coffee-100' : 'text-gray-800';
+            const titleColor = AppState.isDarkMode ? 'text-white' : 'text-gray-800';
             
             if (AppState.currentTab === 'home') {
                 const categoryButtons = AppState.categories.map(category => {
                     const buttonStyle = AppState.isDarkMode 
-                        ? 'bg-coffee-700 border-coffee-600 text-coffee-200 hover:bg-coffee-600' 
+                        ? 'bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700' 
                         : 'bg-white border-amber-200 hover:bg-amber-50';
                     return `<button class="flex-shrink-0 px-4 py-2 border rounded-full text-sm transition-colors ${buttonStyle}">
                         ${category}
@@ -397,7 +519,16 @@
                     ? `検索結果: "${AppState.searchQuery}"`
                     : 'おすすめの番組';
 
-                const showCards = AppState.featuredShows.map(show => createShowCard(show)).join('');
+                const showCards = AppState.featuredShows
+                    .filter(show => { // Search filtering applied here
+                        if (!AppState.searchQuery) return true;
+                        const query = AppState.searchQuery.toLowerCase();
+                        return show.title.toLowerCase().includes(query) ||
+                               show.host.toLowerCase().includes(query) ||
+                               show.category.toLowerCase().includes(query);
+                    })
+                    .map(show => createShowCard(show))
+                    .join('');
 
                 return `
                     <div class="p-4">
@@ -406,135 +537,136 @@
                         </div>
                         <div class="mb-6">
                             <h2 class="text-lg font-semibold ${titleColor} mb-3">${searchTitle}</h2>
-                            <div class="grid grid-cols-2 gap-2">
-                                ${showCards}
+                            <div class="grid grid-cols-1 gap-3"> ${showCards}
                             </div>
                         </div>
                     </div>
                 `;
             } else if (AppState.currentTab === 'create') {
                 const buttonText = AppState.isRecording ? '録音を停止' : '録音を開始';
-                const iconBg = AppState.isDarkMode ? 'bg-coffee-700' : 'bg-amber-200';
-                const descColor = AppState.isDarkMode ? 'text-coffee-300' : 'text-gray-600';
-                
+                const iconBg = AppState.isDarkMode ? 'bg-gray-800' : 'bg-amber-200';
+                const descColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+                const buttonBg = AppState.isDarkMode ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-500 hover:bg-amber-600';
+
                 return `
-                    <div class="p-4">
-                        <div class="text-center py-8">
-                            <div class="w-24 h-24 ${iconBg} rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
-                                🎙️
+                    <div class="p-4 flex flex-col items-center justify-center h-[calc(100vh-180px-64px)]">
+                        <div class="text-center mb-8">
+                            <div class="w-24 h-24 ${iconBg} rounded-full flex items-center justify-center mx-auto mb-4">
+                                ${createIcon('Mic', 'w-12 h-12 text-amber-800')}
                             </div>
-                            <h2 class="text-xl font-semibold ${titleColor} mb-2">新しい番組を作成</h2>
-                            <p class="${descColor} mb-6">録音ボタンを押して配信を始めよう</p>
-                            <button onclick="handleRecord()" class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full font-semibold transition-colors">
-                                ${buttonText}
-                            </button>
+                            <h2 class="text-xl font-bold ${titleColor} mb-2">新しい番組を配信する</h2>
+                            <p class="${descColor}">あなたの声で、世界にメッセージを届けましょう。</p>
                         </div>
+                        <button onclick="handleRecord()" class="flex items-center space-x-2 px-6 py-3 rounded-full text-white font-semibold transition-colors ${buttonBg}">
+                            ${createIcon('Mic', 'w-5 h-5')}
+                            <span>${buttonText}</span>
+                        </button>
                     </div>
                 `;
             } else if (AppState.currentTab === 'profile') {
-                const iconBg = AppState.isDarkMode ? 'bg-coffee-700' : 'bg-amber-200';
-                const descColor = AppState.isDarkMode ? 'text-coffee-300' : 'text-gray-600';
-                
+                const textColor = AppState.isDarkMode ? 'text-gray-200' : 'text-gray-700';
+                const sectionBg = AppState.isDarkMode ? 'bg-black border-gray-700' : 'bg-white border-amber-100';
+
                 return `
                     <div class="p-4">
-                        <div class="text-center py-8">
-                            <div class="w-24 h-24 ${iconBg} rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
-                                👤
+                        <div class="${sectionBg} rounded-lg shadow-sm border p-6 mb-4 text-center">
+                            <div class="w-24 h-24 bg-blue-200 rounded-full flex items-center justify-center text-5xl mx-auto mb-4">
+                                ${createIcon('User', 'w-12 h-12 text-blue-800')}
                             </div>
-                            <h2 class="text-xl font-semibold ${titleColor} mb-2">あなたのプロフィール</h2>
-                            <p class="${descColor} mb-6">番組を作成してリスナーとつながろう</p>
-                            <button class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full font-semibold transition-colors">
-                                プロフィールを編集
-                            </button>
+                            <h2 class="text-xl font-bold ${titleColor} mb-1">ユーザー名</h2>
+                            <p class="${textColor}">@user_handle</p>
+                            <button class="mt-4 px-4 py-2 bg-amber-500 text-white rounded-full hover:bg-amber-600 transition-colors text-sm">プロフィールを編集</button>
+                        </div>
+
+                        <div class="${sectionBg} rounded-lg shadow-sm border p-6">
+                            <h3 class="text-lg font-semibold ${titleColor} mb-3">統計情報</h3>
+                            <div class="grid grid-cols-2 gap-4 text-center">
+                                <div>
+                                    <p class="text-2xl font-bold ${titleColor}">120</p>
+                                    <p class="${textColor}">フォロワー</p>
+                                </div>
+                                <div>
+                                    <p class="text-2xl font-bold ${titleColor}">15</p>
+                                    <p class="${textColor}">配信数</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 `;
             }
-            return '';
         }
 
-        function createMiniPlayer() {
+        function createPlayerBar() {
             if (!AppState.currentShow) return '';
 
-            const playButtonIcon = AppState.isPlaying ? createIcon('Pause') : createIcon('Play');
-            const playerBg = AppState.isDarkMode ? 'bg-coffee-800 border-coffee-600' : 'bg-white border-amber-200';
-            const titleColor = AppState.isDarkMode ? 'text-coffee-100' : 'text-gray-800';
-            const hostColor = AppState.isDarkMode ? 'text-coffee-300' : 'text-gray-600';
-            const avatarBg = AppState.isDarkMode ? 'bg-coffee-700' : 'bg-amber-100';
+            const playerBarBg = AppState.isDarkMode ? 'bg-black border-t border-gray-700' : 'bg-white border-t border-amber-100';
+            const titleColor = AppState.isDarkMode ? 'text-white' : 'text-gray-800';
+            const hostColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+            const playButtonBg = AppState.isDarkMode ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-500 hover:bg-amber-600';
 
             return `
-                <div class="fixed bottom-20 left-4 right-4 max-w-md mx-auto ${playerBg} rounded-lg shadow-lg border p-4">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 ${avatarBg} rounded-full flex items-center justify-center">
+                <div class="fixed bottom-16 left-0 right-0 max-w-md mx-auto ${playerBarBg} shadow-lg p-3 flex items-center justify-between rounded-t-lg">
+                    <div class="flex items-center space-x-3 flex-1 min-w-0">
+                        <div class="w-10 h-10 bg-amber-100 rounded-md flex items-center justify-center text-lg ${AppState.isDarkMode ? 'bg-gray-800' : ''}">
                             ${AppState.currentShow.avatar}
                         </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-semibold text-sm ${titleColor} truncate">${AppState.currentShow.title}</p>
-                            <p class="text-xs ${hostColor} truncate">${AppState.currentShow.host}</p>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold truncate ${titleColor}">${AppState.currentShow.title}</p>
+                            <p class="text-xs ${hostColor}">${AppState.currentShow.host}</p>
                         </div>
-                        <button onclick="handlePlay(${AppState.currentShow.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-full transition-colors">
-                            ${playButtonIcon}
-                        </button>
                     </div>
+                    <button onclick="handlePlay(${AppState.currentShow.id})" class="p-2 rounded-full text-white transition-colors ${playButtonBg}">
+                        ${AppState.isPlaying ? createIcon('Pause') : createIcon('Play')}
+                    </button>
                 </div>
             `;
         }
 
-        function createBottomNavigation() {
-            const homeClass = AppState.currentTab === 'home'
-                ? (AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600')
-                : (AppState.isDarkMode ? 'text-coffee-300 hover:text-coffee-100' : 'text-gray-500 hover:text-gray-700');
-            const createClass = AppState.currentTab === 'create'
-                ? (AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600')
-                : (AppState.isDarkMode ? 'text-coffee-300 hover:text-coffee-100' : 'text-gray-500 hover:text-gray-700');
-            const profileClass = AppState.currentTab === 'profile'
-                ? (AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600')
-                : (AppState.isDarkMode ? 'text-coffee-300 hover:text-coffee-100' : 'text-gray-500 hover:text-gray-700');
+        function createNavBar() {
+            const navBg = AppState.isDarkMode ? 'bg-black border-t border-gray-700' : 'bg-white border-t border-amber-100';
+            const activeClass = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600';
+            const inactiveClass = AppState.isDarkMode ? 'text-gray-400 hover:text-amber-300' : 'text-gray-500 hover:text-amber-500';
 
-            const navBg = AppState.isDarkMode ? 'bg-coffee-900 border-coffee-700' : 'bg-white border-amber-100';
+            const homeClass = AppState.currentTab === 'home' ? activeClass : inactiveClass;
+            const createClass = AppState.currentTab === 'create' ? activeClass : inactiveClass;
+            const profileClass = AppState.currentTab === 'profile' ? activeClass : inactiveClass;
 
             return `
-                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto ${navBg} border-t shadow-lg z-10">
-                    <div class="flex justify-around items-center h-16">
-                        <button onclick="handleTabChange('home')" class="flex flex-col items-center justify-center text-sm font-medium ${homeClass} transition-colors">
-                            ${createIcon('Home')}
-                            <span>ホーム</span>
-                        </button>
-                        <button onclick="handleTabChange('create')" class="flex flex-col items-center justify-center text-sm font-medium ${createClass} transition-colors">
-                            ${createIcon('Plus')}
-                            <span>作成</span>
-                        </button>
-                        <button onclick="handleTabChange('profile')" class="flex flex-col items-center justify-center text-sm font-medium ${profileClass} transition-colors">
-                            ${createIcon('User')}
-                            <span>プロフィール</span>
-                        </button>
-                    </div>
+                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto ${navBg} shadow-lg py-3 px-4 flex justify-around items-center rounded-t-lg z-10">
+                    <button onclick="handleTabChange('home')" class="flex flex-col items-center text-xs font-medium ${homeClass} transition-colors">
+                        ${createIcon('Home')}
+                        ホーム
+                    </button>
+                    <button onclick="handleTabChange('create')" class="flex flex-col items-center text-xs font-medium ${createClass} transition-colors">
+                        ${createIcon('Plus')}
+                        作成
+                    </button>
+                    <button onclick="handleTabChange('profile')" class="flex flex-col items-center text-xs font-medium ${profileClass} transition-colors">
+                        ${createIcon('User')}
+                        プロフィール
+                    </button>
                 </div>
             `;
         }
 
         // 全体のレンダリング関数
         function render() {
-            const app = document.getElementById('app');
-            if (app) {
-                app.innerHTML = `
-                    <div class="flex flex-col min-h-screen">
-                        ${createHeader()}
-                        <main class="flex-1 overflow-y-auto pb-24">
-                            ${createMainContent()}
-                        </main>
-                        ${createMiniPlayer()}
-                        ${createBottomNavigation()}
-                    </div>
-                `;
-            }
+            const appDiv = document.getElementById('app');
+            if (!appDiv) return;
+
+            // Update body class on every render to ensure consistency
+            updateBodyClass();
+
+            let html = createHeader();
+            html += createMainContent();
+            html += createPlayerBar();
+            html += createNavBar();
+
+            appDiv.innerHTML = html;
         }
 
-        // 初期レンダリングとボディクラスの設定
-        document.addEventListener('DOMContentLoaded', () => {
-            updateBodyClass();
-            render();
-        });
+        // 初期レンダリング
+        render();
     </script>
 </body>
 </html>
