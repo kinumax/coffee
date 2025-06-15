@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coffee - 音声配信アプリ</title>
+    <meta name="description" content="Coffee 
+は音声配信プラットフォームです。お気に入りの番組を聴いたり、自分で配信したりできます。">
+    <meta name="keywords" content="音声配信, ポッドキャスト, ラジオ, 
+音声メディア">
+    <meta name="author" content="Coffee Team">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://your-app-url.vercel.app/">
+    <meta property="og:title" content="Coffee - 音声配信アプリ">
+    <meta property="og:description" content="Coffee 
+は音声配信プラットフォームです。お気に入りの番組を聴いたり、自分で配信したりできます。">
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" 
+content="https://your-app-url.vercel.app/">
+    <meta property="twitter:title" content="Coffee - 音声配信アプリ">
+    <meta property="twitter:description" content="Coffee 
+は音声配信プラットフォームです。お気に入りの番組を聴いたり、自分で配信したりできます。">
+    
+    <!-- Favicon -->
+    <link rel="icon" href="data:image/svg+xml,<svg 
+xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' 
+font-size='90'>☕</text></svg>">
+    
+    <script 
+src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.1/umd/lucide.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        coffee: {
+                            50: '#fdf8f0',
+                            100: '#fbeee0',
+                            200: '#f6d6b3',
+                            300: '#f0c185',
+                            400: '#e8a852',
+                            500: '#d2691e',
+                            600: '#b8651e',
+                            700: '#9e5a1a',
+                            800: '#844e16',
+                            900: '#6a4113'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @keyframes pulse-recording {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .recording-pulse {
+            animation: pulse-recording 1s ease-in-out infinite;
+        }
+        .wave-animation {
+            animation: wave 2s ease-in-out infinite;
+        }
+        @keyframes wave {
+            0%, 100% { transform: scaleY(1); }
+            50% { transform: scaleY(1.5); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-amber-50 to-orange-50 min-h-screen">
+    <div id="app" class="max-w-md mx-auto min-h-screen relative"></div>
+
+    <script>
+        // アプリの状態管理
+        const AppState = {
+            currentTab: 'home',
+            isPlaying: false,
+            isRecording: false,
+            currentShow: null,
+            searchQuery: '',
+            recordingTime: 0,
+            recordingTimer: null,
+            
+            // サンプルデータ
+            featuredShows: [
+                {
+                    id: 1,
+                    title: "朝のコーヒーブレイク",
+                    host: "田中さくら",
+                    listeners: 1234,
+                    duration: "12:34",
+                    category: "ライフスタイル",
+                    isLive: true,
+                    avatar: "☕",
+                    likes: 89,
+                    comments: 23
+                },
+                {
+                    id: 2,
+                    title: "深夜の読書会",
+                    host: "山田太郎",
+                    listeners: 567,
+                    duration: "25:16",
+                    category: "読書",
+                    isLive: false,
+                    avatar: "📚",
+                    likes: 156,
+                    comments: 34
+                },
+                {
+                    id: 3,
+                    title: "今日のニュース解説",
+                    host: "佐藤花子",
+                    listeners: 2345,
+                    duration: "18:42",
+                    category: "ニュース",
+                    isLive: true,
+                    avatar: "📰",
+                    likes: 203,
+                    comments: 67
+                },
+                {
+                    id: 4,
+                    title: "夜のジャズタイム",
+                    host: "鈴木ジロー",
+                    listeners: 890,
+                    duration: "45:22",
+                    category: "音楽",
+                    isLive: false,
+                    avatar: "🎷",
+                    likes: 334,
+                    comments: 12
+                }
+            ],
+            
+            categories: ["すべて", "ライフスタイル", "読書", "ニュース", 
+"音楽", "トーク", "学習"]
+        };
+
+        // ユーティリティ関数
+        const formatTime = (seconds) => {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        };
+
+        const formatNumber = (num) => {
+            return num.toLocaleString();
+        };
+
+        // イベントハンドラー
+        const handleTabChange = (tab) => {
+            AppState.currentTab = tab;
+            render();
+        };
+
+        const handlePlay = (show) => {
+            if (AppState.currentShow?.id === show.id) {
+                AppState.isPlaying = !AppState.isPlaying;
+            } else {
+                AppState.currentShow = show;
+                AppState.isPlaying = true;
+            }
+            render();
+        };
+
+        const handleRecord = () => {
+            if (AppState.isRecording) {
+                AppState.isRecording = false;
+                AppState.recordingTime = 0;
+                clearInterval(AppState.recordingTimer);
+            } else {
+                AppState.isRecording = true;
+                AppState.recordingTime = 0;
+                AppState.recordingTimer = setInterval(() => {
+                    AppState.recordingTime++;
+                    updateRecordingTime();
+                }, 1000);
+            }
+            render();
+        };
+
+        const handleSearch = (query) => {
+            AppState.searchQuery = query;
+            render();
+        };
+
+        const handleLike = (showId) => {
+            const show = AppState.featuredShows.find(s => s.id === 
+showId);
+            if (show) {
+                show.likes++;
+                render();
+            }
+        };
+
+        const updateRecordingTime = () => {
+            const timeElement = document.getElementById('recording-time');
+            if (timeElement) {
+                timeElement.textContent = 
+formatTime(AppState.recordingTime);
+            }
+        };
+
+        // コンポーネント生成関数
+        const createIcon = (iconName, className = "w-4 h-4") => {
+            const icon = lucide.createElement(lucide[iconName]);
+            icon.setAttribute('class', className);
+            return icon.outerHTML;
+        };
+
+        const createShowCard = (show) => {
+            const filteredShows = AppState.searchQuery 
+                ? AppState.featuredShows.filter(s => 
+                    
+s.title.toLowerCase().includes(AppState.searchQuery.toLowerCase()) ||
+                    
+s.host.toLowerCase().includes(AppState.searchQuery.toLowerCase()) ||
+                    
+s.category.toLowerCase().includes(AppState.searchQuery.toLowerCase())
+                  )
+                : AppState.featuredShows;
+            
+            if (AppState.searchQuery && !filteredShows.includes(show)) {
+                return '';
+            }
+
+            return `
+                <div class="bg-white rounded-lg shadow-sm border 
+border-amber-100 p-4 mb-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-12 h-12 bg-amber-100 rounded-full 
+flex items-center justify-center text-xl">
+                            ${show.avatar}
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-1">
+                                ${show.isLive ? '<span class="bg-red-500 
+text-white text-xs px-2 py-1 rounded-full">LIVE</span>' : ''}
+                                <span class="text-xs text-amber-600 
+bg-amber-50 px-2 py-1 rounded-full">
+                                    ${show.category}
+                                </span>
+                            </div>
+                            <h3 class="font-semibold text-gray-800 
+mb-1">${show.title}</h3>
+                            <p class="text-sm text-gray-600 mb-2">by 
+${show.host}</p>
+                            <div class="flex items-center 
+justify-between">
+                                <div class="flex items-center space-x-4 
+text-sm text-gray-500">
+                                    <span class="flex items-center 
+space-x-1">
+                                        ${createIcon('Volume2')}
+                                        
+<span>${formatNumber(show.listeners)}</span>
+                                    </span>
+                                    <span>${show.duration}</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button 
+onclick="handleLike(${show.id})" class="p-2 text-gray-400 
+hover:text-red-500 transition-colors flex items-center space-x-1">
+                                        ${createIcon('Heart')}
+                                        <span 
+class="text-xs">${show.likes}</span>
+                                    </button>
+                                    <button class="p-2 text-gray-400 
+hover:text-blue-500 transition-colors flex items-center space-x-1">
+                                        ${createIcon('MessageCircle')}
+                                        <span 
+class="text-xs">${show.comments}</span>
+                                    </button>
+                                    <button class="p-2 text-gray-400 
+hover:text-gray-600 transition-colors">
+                                        ${createIcon('Share2')}
+                                    </button>
+                                    <button 
+onclick="handlePlay(${JSON.stringify(show).replace(/"/g, '&quot;')})" 
+                                            class="bg-amber-500 
+hover:bg-amber-600 text-white p-2 rounded-full transition-colors">
+                                        ${AppState.currentShow?.id === 
+show.id && AppState.isPlaying 
+                                            ? createIcon('Pause') 
+                                            : createIcon('Play')
+                                        }
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        const createHeader = () => {
+            return `
+                <div class="bg-white shadow-sm border-b border-amber-100 
+p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            ${createIcon('Coffee', 'w-8 h-8 
+text-amber-600')}
+                            <h1 class="text-2xl font-bold 
+text-amber-800">Coffee</h1>
+                        </div>
+                        <button onclick="handleRecord()" 
+                                class="p-3 rounded-full transition-all 
+${AppState.isRecording 
+                                    ? 'bg-red-500 text-white 
+recording-pulse' 
+                                    : 'bg-amber-500 hover:bg-amber-600 
+text-white'
+                                }">
+                            ${createIcon('Mic', 'w-5 h-5')}
+                        </button>
+                    </div>
+                    
+                    ${AppState.isRecording ? `
+                        <div class="bg-red-50 border border-red-200 
+rounded-lg p-3 mb-4">
+                            <div class="flex items-center 
+justify-between">
+                                <div class="flex items-center space-x-2">
+                                    <div class="flex space-x-1">
+                                        <div class="w-1 h-4 bg-red-500 
+rounded wave-animation" style="animation-delay: 0ms"></div>
+                                        <div class="w-1 h-4 bg-red-500 
+rounded wave-animation" style="animation-delay: 200ms"></div>
+                                        <div class="w-1 h-4 bg-red-500 
+rounded wave-animation" style="animation-delay: 400ms"></div>
+                                    </div>
+                                    <span class="text-red-600 
+font-semibold">録音中...</span>
+                                </div>
+                                <span id="recording-time" 
+class="text-red-600 
+font-mono">${formatTime(AppState.recordingTime)}</span>
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="relative">
+                        ${createIcon('Search', 'absolute left-3 top-3 w-4 
+h-4 text-gray-400')}
+                        <input
+                            type="text"
+                            placeholder="番組やパーソナリティを検索"
+                            value="${AppState.searchQuery}"
+                            oninput="handleSearch(this.value)"
+                            class="w-full pl-10 pr-4 py-2 border 
+border-amber-200 rounded-full focus:outline-none focus:ring-2 
+focus:ring-amber-300"
+                        />
+                    </div>
+                </div>
+            `;
+        };
+
+        const createMainContent = () => {
+            if (AppState.currentTab === 'home') {
+                return `
+                    <div class="p-4">
+                        <!-- カテゴリー -->
+                        <div class="flex space-x-2 mb-6 overflow-x-auto 
+pb-2">
+                            ${AppState.categories.map(category => `
+                                <button class="flex-shrink-0 px-4 py-2 
+bg-white border border-amber-200 rounded-full text-sm hover:bg-amber-50 
+transition-colors">
+                                    ${category}
+                                </button>
+                            `).join('')}
+                        </div>
+
+                        <!-- おすすめ番組 -->
+                        <div class="mb-6">
+                            <h2 class="text-lg font-semibold text-gray-800 
+mb-4">
+                                ${AppState.searchQuery ? `検索結果: 
+"${AppState.searchQuery}"` : 'おすすめの番組'}
+                            </h2>
+                            ${AppState.featuredShows.map(show => 
+createShowCard(show)).join('')}
+                        </div>
+                    </div>
+                `;
+            } else if (AppState.currentTab === 'create') {
+                return `
+                    <div class="p-4">
+                        <div class="text-center py-8">
+                            <div class="w-24 h-24 bg-amber-200 
+rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
+                                🎙️
+                            </div>
+                            <h2 class="text-xl font-semibold text-gray-800 
+mb-2">新しい番組を作成</h2>
+                            <p class="text-gray-600 
+mb-6">録音ボタンを押して配信を始めよう</p>
+                            <button onclick="handleRecord()" 
+class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full 
+font-semibold transition-colors">
+                                ${AppState.isRecording ? '録音を停止' : 
+'録音を開始'}
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (AppState.currentTab === 'profile') {
+                return `
+                    <div class="p-4">
+                        <div class="text-center py-8">
+                            <div class="w-24 h-24 bg-amber-200 
+rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
+                                👤
+                            </div>
+                            <h2 class="text-xl font-semibold text-gray-800 
+mb-2">あなたのプロフィール</h2>
+                            <p class="text-gray-600 
+mb-6">番組を作成してリスナーとつながろう</p>
+                            <button class="bg-amber-500 hover:bg-amber-600 
+text-white px-6 py-3 rounded-full font-semibold transition-colors">
+                                プロフィールを編集
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+        };
+
+        const createMiniPlayer = () => {
+            if (!AppState.currentShow) return '';
+
+            return `
+                <div class="fixed bottom-20 left-4 right-4 max-w-md 
+mx-auto bg-white rounded-lg shadow-lg border border-amber-200 p-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-amber-100 rounded-full 
+flex items-center justify-center">
+                            ${AppState.currentShow.avatar}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-sm text-gray-800 
+truncate">${AppState.currentShow.title}</p>
+                            <p class="text-xs text-gray-600 
+truncate">${AppState.currentShow.host}</p>
+                        </div>
+                        <button 
+onclick="handlePlay(${JSON.stringify(AppState.currentShow).replace(/"/g, 
+'&quot;')})" 
+                                class="bg-amber-500 hover:bg-amber-600 
+text-white p-2 rounded-full transition-colors">
+                            ${AppState.isPlaying ? createIcon('Pause') : 
+createIcon('Play')}
+                        </button>
+                    </div>
+                </div>
+            `;
+        };
+
+        const createBottomNavigation = () => {
+            return `
+                <div class="fixed bottom-0 left-0 right-0 bg-white 
+border-t border-amber-200 px-4 py-2 z-10">
+                    <div class="flex justify-around max-w-md mx-auto">
+                        <button onclick="handleTabChange('home')" 
+                                class="flex flex-col items-center py-2 
+px-4 ${AppState.currentTab === 'home' ? 'text-amber-600' : 
+'text-gray-400'}">
+                            ${createIcon('Home', 'w-5 h-5 mb-1')}
+                            <span class="text-xs">ホーム</span>
+                        </button>
+                        <button onclick="handleTabChange('create')" 
+                                class="flex flex-col items-center py-2 
+px-4 ${AppState.currentTab === 'create' ? 'text-amber-600' : 
+'text-gray-400'}">
+                            ${createIcon('Plus', 'w-5 h-5 mb-1')}
+                            <span class="text-xs">作成</span>
+                        </button>
+                        <button onclick="handleTabChange('profile')" 
+                                class="flex flex-col items-center py-2 
+px-4 ${AppState.currentTab === 'profile' ? 'text-amber-600' : 
+'text-gray-400'}">
+                            ${createIcon('User', 'w-5 h-5 mb-1')}
+                            <span class="text-xs">プロフィール</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+        };
+
+        // メインレンダリング関数
+        const render = () => {
+            const app = document.getElementById('app');
+            app.innerHTML = `
+                ${createHeader()}
+                ${createMainContent()}
+                ${createMiniPlayer()}
+                ${createBottomNavigation()}
+            `;
+        };
+
+        // 初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            render();
+        });
+    </script>
+</body>
+</html>
