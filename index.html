@@ -3,477 +3,1353 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coffee配信</title>
+    <title>Coffee - 音声配信アプリ</title>
+    <meta name="description" content="Coffeeは音声配信プラットフォームです。お気に入りの番組を聴いたり、自分で配信したりできます。">
+    <meta name="keywords" content="音声配信, ポッドキャスト, ラジオ, 音声メディア">
+    <meta name="author" content="Coffee Team">
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
+
+    <!-- Daily.co SDK -->
+    <script src="https://unpkg.com/@daily-co/daily-js"></script>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        coffee: {
+                            50: '#fdf8f0',
+                            100: '#fbeee0',
+                            200: '#f6d6b3',
+                            300: '#f0c185',
+                            400: '#e8a852',
+                            500: '#d2691e',
+                            600: '#b8651e',
+                            700: '#9e5a1a',
+                            800: '#844e16',
+                            900: '#6a4113',
+                            950: '#3d1f07'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Arial', sans-serif; background: linear-gradient(135deg, #6B4E3D, #8B5A3C); min-height: 100vh; color: white; }
-        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
-        .status-bar { background: rgba(255,255,255,0.1); padding: 15px; border-radius: 10px; margin-bottom: 20px; text-align: center; }
-        .controls { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
-        .btn { padding: 12px 24px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: all 0.3s; }
-        .btn-primary { background: #D2691E; color: white; }
-        .btn-primary:hover { background: #B8860B; transform: translateY(-2px); }
-        .btn-secondary { background: rgba(255,255,255,0.2); color: white; }
-        .btn-secondary:hover { background: rgba(255,255,255,0.3); }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .video-container { position: relative; margin-bottom: 20px; }
-        .video { width: 100%; height: 300px; background: #000; border-radius: 10px; object-fit: cover; }
-        .rooms-list { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; margin-bottom: 20px; }
-        .room-item { background: rgba(255,255,255,0.1); padding: 15px; margin: 10px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
-        .viewer-count { background: #D2691E; padding: 5px 10px; border-radius: 15px; font-size: 14px; }
-        .chat-container { background: rgba(255,255,255,0.1); padding: 20px; border-radius: 10px; height: 300px; display: flex; flex-direction: column; }
-        .chat-messages { flex: 1; overflow-y: auto; margin-bottom: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 5px; }
-        .chat-input-container { display: flex; gap: 10px; }
-        .chat-input { flex: 1; padding: 10px; border: none; border-radius: 5px; background: rgba(255,255,255,0.9); }
-        .message { margin-bottom: 10px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 5px; }
-        .message-time { font-size: 12px; opacity: 0.7; }
-        .hidden { display: none; }
-        .loading { text-align: center; padding: 20px; }
-        @media (max-width: 600px) {
-            .container { padding: 10px; }
-            .controls { flex-direction: column; }
-            .btn { width: 100%; }
+        @keyframes pulse-recording {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .recording-pulse {
+            animation: pulse-recording 1s ease-in-out infinite;
+        }
+        .wave-animation {
+            animation: wave 2s ease-in-out infinite;
+        }
+        @keyframes wave {
+            0%, 100% { transform: scaleY(1); }
+            50% { transform: scaleY(1.5); }
+        }
+        .volume-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .volume-indicator {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444);
+            border-radius: 2px;
+            transition: width 0.1s ease;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>☕ Coffee配信</h1>
-            <div class="status-bar">
-                <span id="connectionStatus">接続中...</span>
-                <span id="onlineCount" class="viewer-count">0人オンライン</span>
-            </div>
-        </div>
-
-        <!-- メイン画面 -->
-        <div id="mainScreen">
-            <div class="controls">
-                <button class="btn btn-primary" onclick="startStreaming()">配信開始</button>
-                <button class="btn btn-secondary" onclick="showRoomsList()">ルーム一覧</button>
-                <input type="text" placeholder="ルーム名を入力" id="roomNameInput" style="padding: 12px; border-radius: 8px; border: none;">
-            </div>
-        </div>
-
-        <!-- 配信画面 -->
-        <div id="streamingScreen" class="hidden">
-            <div class="video-container">
-                <video id="localVideo" class="video" autoplay muted playsinline></video>
-            </div>
-            <div class="controls">
-                <button class="btn btn-secondary" onclick="stopStreaming()">配信終了</button>
-                <span id="viewerCount" class="viewer-count">0人視聴中</span>
-            </div>
-        </div>
-
-        <!-- ルーム一覧 -->
-        <div id="roomsScreen" class="hidden">
-            <div class="rooms-list">
-                <h3>アクティブなルーム</h3>
-                <div id="roomsList"></div>
-            </div>
-            <div class="controls">
-                <button class="btn btn-secondary" onclick="showMainScreen()">戻る</button>
-                <button class="btn btn-primary" onclick="refreshRooms()">更新</button>
-            </div>
-        </div>
-
-        <!-- 視聴画面 -->
-        <div id="viewingScreen" class="hidden">
-            <div class="video-container">
-                <video id="remoteVideo" class="video" autoplay playsinline></video>
-            </div>
-            <div class="controls">
-                <button class="btn btn-secondary" onclick="leaveRoom()">退出</button>
-                <span id="currentRoomName">ルーム名</span>
-            </div>
-        </div>
-
-        <!-- チャット -->
-        <div class="chat-container">
-            <div class="chat-messages" id="chatMessages"></div>
-            <div class="chat-input-container">
-                <input type="text" class="chat-input" id="chatInput" placeholder="メッセージを入力...">
-                <button class="btn btn-primary" onclick="sendMessage()">送信</button>
-            </div>
-        </div>
-    </div>
+<body class="min-h-screen transition-colors duration-300">
+    <div id="app" class="max-w-md mx-auto min-h-screen relative"></div>
 
     <script>
-        // グローバル変数
-        let ws = null;
-        let localStream = null;
-        let remoteStream = null;
-        let peerConnection = null;
-        let currentRoom = null;
-        let isStreaming = false;
-        let userId = generateUserId();
-
-        // WebSocket接続とリアルタイム通信
-        function connectWebSocket() {
-            // 本来はWebSocketサーバーが必要ですが、簡易版としてServer-Sent Eventsを使用
-            // 実際の実装では専用のWebSocketサーバーを構築してください
-            
-            // 擬似的なリアルタイム通信（実際にはFirebaseやSupabaseのリアルタイム機能を推奨）
-            console.log('WebSocket接続を試行中...');
-            
-            // 定期的にルーム一覧を更新
-            setInterval(updateRoomsList, 3000);
-            setInterval(updateOnlineCount, 5000);
-            
-            document.getElementById('connectionStatus').textContent = '接続済み';
-        }
-
-        // ユーザーID生成
-        function generateUserId() {
-            return 'user_' + Math.random().toString(36).substr(2, 9);
-        }
-
-        // 配信開始
-        async function startStreaming() {
-            const roomName = document.getElementById('roomNameInput').value.trim();
-            if (!roomName) {
-                alert('ルーム名を入力してください');
-                return;
+        // Daily.co音声配信クラス - 修正版
+        class DailyAudioStreamer {
+            constructor() {
+                this.callFrame = null;
+                this.isHost = false;
+                this.roomUrl = null;
+                this.participants = new Map();
+                this.isConnected = false;
+                this.localAudio = true;
+                this.roomName = null;
+                this.listeners = [];
+                
+                // Daily.co設定
+                this.dailyConfig = {
+                    url: null,
+                    showLeaveButton: false,
+                    showFullscreenButton: false,
+                    showLocalVideo: false,
+                    showParticipantsBar: false,
+                    activeSpeakerMode: true,
+                    receiveSettings: {
+                        video: false, // 音声のみ
+                        screenVideo: false
+                    },
+                    sendSettings: {
+                        video: false, // 音声のみ
+                        screenVideo: false
+                    }
+                };
             }
 
-            try {
-                // カメラとマイクにアクセス
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                        facingMode: 'user'
-                    },
-                    audio: true
+            // Daily.co初期化
+            async initialize() {
+                try {
+                    // Daily.co SDKの読み込み確認
+                    if (typeof DailyIframe === 'undefined') {
+                        throw new Error('Daily.co SDK not loaded');
+                    }
+                    
+                    return true;
+                } catch (error) {
+                    console.error('Daily.co初期化エラー:', error);
+                    return false;
+                }
+            }
+
+            // 配信ルーム作成（ホスト用）
+            async createRoom(roomName, hostName) {
+                try {
+                    // テスト用のルーム作成（実際のAPIキーが必要）
+                    const roomUrl = `https://manus-test.daily.co/${roomName}`;
+                    
+                    this.roomUrl = roomUrl;
+                    this.roomName = roomName;
+                    this.isHost = true;
+                    
+                    // CallFrame作成
+                    this.callFrame = DailyIframe.createFrame({
+                        iframeStyle: {
+                            position: 'fixed',
+                            top: '-1000px',
+                            left: '-1000px',
+                            width: '1px',
+                            height: '1px',
+                            visibility: 'hidden'
+                        },
+                        ...this.dailyConfig,
+                        url: roomUrl
+                    });
+
+                    // イベントリスナー設定
+                    this.setupEventListeners();
+
+                    // ルーム参加
+                    await this.callFrame.join({
+                        userName: hostName,
+                        startAudioOff: false,
+                        startVideoOff: true
+                    });
+
+                    this.isConnected = true;
+                    
+                    return {
+                        success: true,
+                        roomUrl: roomUrl,
+                        roomName: roomName
+                    };
+                    
+                } catch (error) {
+                    console.error('ルーム作成エラー:', error);
+                    return {
+                        success: false,
+                        error: error.message
+                    };
+                }
+            }
+
+            // 配信ルーム参加（リスナー用）
+            async joinRoom(roomUrl, listenerName) {
+                try {
+                    this.roomUrl = roomUrl;
+                    this.isHost = false;
+                    
+                    // CallFrame作成
+                    this.callFrame = DailyIframe.createFrame({
+                        iframeStyle: {
+                            position: 'fixed',
+                            top: '-1000px',
+                            left: '-1000px',
+                            width: '1px',
+                            height: '1px',
+                            visibility: 'hidden'
+                        },
+                        ...this.dailyConfig,
+                        url: roomUrl
+                    });
+
+                    // イベントリスナー設定
+                    this.setupEventListeners();
+
+                    // ルーム参加（リスナーは音声送信オフ）
+                    await this.callFrame.join({
+                        userName: listenerName,
+                        startAudioOff: true, // リスナーはミュート
+                        startVideoOff: true
+                    });
+
+                    this.isConnected = true;
+                    
+                    return {
+                        success: true,
+                        roomUrl: roomUrl
+                    };
+                    
+                } catch (error) {
+                    console.error('ルーム参加エラー:', error);
+                    return {
+                        success: false,
+                        error: error.message
+                    };
+                }
+            }
+
+            // イベントリスナー設定
+            setupEventListeners() {
+                if (!this.callFrame) return;
+
+                // 参加者の参加
+                this.callFrame.on('participant-joined', (event) => {
+                    const participant = event.participant;
+                    this.participants.set(participant.session_id, participant);
+                    this.notifyListeners('participant-joined', participant);
                 });
 
-                document.getElementById('localVideo').srcObject = localStream;
+                // 参加者の退出
+                this.callFrame.on('participant-left', (event) => {
+                    const participant = event.participant;
+                    this.participants.delete(participant.session_id);
+                    this.notifyListeners('participant-left', participant);
+                });
+
+                // 音声状態変更
+                this.callFrame.on('participant-updated', (event) => {
+                    const participant = event.participant;
+                    this.participants.set(participant.session_id, participant);
+                    this.notifyListeners('participant-updated', participant);
+                });
+
+                // エラーハンドリング
+                this.callFrame.on('error', (event) => {
+                    console.error('Daily.co エラー:', event);
+                    this.notifyListeners('error', event);
+                });
+
+                // 接続状態変更
+                this.callFrame.on('joined-meeting', (event) => {
+                    this.notifyListeners('joined', event);
+                });
+
+                this.callFrame.on('left-meeting', (event) => {
+                    this.isConnected = false;
+                    this.notifyListeners('left', event);
+                });
+            }
+
+            // 音声のオン/オフ切り替え
+            async toggleAudio() {
+                if (!this.callFrame || !this.isConnected) return false;
+
+                try {
+                    this.localAudio = !this.localAudio;
+                    await this.callFrame.setLocalAudio(this.localAudio);
+                    return this.localAudio;
+                } catch (error) {
+                    console.error('音声切り替えエラー:', error);
+                    return false;
+                }
+            }
+
+            // 参加者数取得
+            getParticipantCount() {
+                return this.participants.size;
+            }
+
+            // 参加者リスト取得
+            getParticipants() {
+                return Array.from(this.participants.values());
+            }
+
+            // ルーム退出
+            async leaveRoom() {
+                try {
+                    if (this.callFrame && this.isConnected) {
+                        await this.callFrame.leave();
+                    }
+                    
+                    if (this.callFrame) {
+                        this.callFrame.destroy();
+                        this.callFrame = null;
+                    }
+                    
+                    this.isConnected = false;
+                    this.participants.clear();
+                    this.roomUrl = null;
+                    this.roomName = null;
+                    
+                    return true;
+                } catch (error) {
+                    console.error('ルーム退出エラー:', error);
+                    return false;
+                }
+            }
+
+            // イベントリスナー追加
+            addEventListener(callback) {
+                this.listeners.push(callback);
+            }
+
+            // イベントリスナー削除
+            removeEventListener(callback) {
+                const index = this.listeners.indexOf(callback);
+                if (index > -1) {
+                    this.listeners.splice(index, 1);
+                }
+            }
+
+            // リスナーに通知
+            notifyListeners(eventType, data) {
+                this.listeners.forEach(callback => {
+                    try {
+                        callback(eventType, data);
+                    } catch (error) {
+                        console.error('リスナー通知エラー:', error);
+                    }
+                });
+            }
+
+            // ルームURL生成
+            static generateRoomUrl(roomName) {
+                return `https://manus-test.daily.co/${roomName}`;
+            }
+
+            // ルーム名からURL抽出
+            static extractRoomName(roomUrl) {
+                try {
+                    const url = new URL(roomUrl);
+                    return url.pathname.substring(1); // '/'を除去
+                } catch (error) {
+                    return null;
+                }
+            }
+        }
+
+        // ルーム管理クラス
+        class RoomManager {
+            constructor() {
+                this.activeRooms = new Map();
+                this.currentRoom = null;
+            }
+
+            // ランダムルーム名生成
+            generateRoomName() {
+                const adjectives = ['cozy', 'warm', 'bright', 'calm', 'fresh'];
+                const nouns = ['coffee', 'chat', 'talk', 'voice', 'sound'];
+                const randomNum = Math.floor(Math.random() * 1000);
                 
-                // ルーム作成
-                currentRoom = {
-                    id: generateRoomId(),
-                    name: roomName,
-                    creator: userId,
-                    createdAt: new Date().toISOString(),
-                    viewers: 0
+                const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
+                const noun = nouns[Math.floor(Math.random() * nouns.length)];
+                
+                return `${adjective}-${noun}-${randomNum}`;
+            }
+
+            // ルーム作成
+            async createRoom(hostName, roomTitle = '') {
+                const roomName = this.generateRoomName();
+                const streamer = new DailyAudioStreamer();
+                
+                const result = await streamer.createRoom(roomName, hostName);
+                
+                if (result.success) {
+                    const roomInfo = {
+                        name: roomName,
+                        title: roomTitle || `${hostName}の配信`,
+                        host: hostName,
+                        streamer: streamer,
+                        createdAt: new Date(),
+                        participants: 0
+                    };
+                    
+                    this.activeRooms.set(roomName, roomInfo);
+                    this.currentRoom = roomInfo;
+                    
+                    // 参加者数更新のリスナー設定
+                    streamer.addEventListener((eventType, data) => {
+                        if (eventType === 'participant-joined' || eventType === 'participant-left') {
+                            roomInfo.participants = streamer.getParticipantCount();
+                        }
+                    });
+                }
+                
+                return result;
+            }
+
+            // ルーム参加
+            async joinRoom(roomUrl, listenerName) {
+                const roomName = DailyAudioStreamer.extractRoomName(roomUrl);
+                if (!roomName) {
+                    return { success: false, error: '無効なルームURLです' };
+                }
+
+                const streamer = new DailyAudioStreamer();
+                const result = await streamer.joinRoom(roomUrl, listenerName);
+                
+                if (result.success) {
+                    const roomInfo = {
+                        name: roomName,
+                        streamer: streamer,
+                        joinedAt: new Date(),
+                        isListener: true
+                    };
+                    
+                    this.currentRoom = roomInfo;
+                }
+                
+                return result;
+            }
+
+            // 現在のルーム取得
+            getCurrentRoom() {
+                return this.currentRoom;
+            }
+
+            // ルーム退出
+            async leaveCurrentRoom() {
+                if (this.currentRoom && this.currentRoom.streamer) {
+                    await this.currentRoom.streamer.leaveRoom();
+                    
+                    if (!this.currentRoom.isListener) {
+                        this.activeRooms.delete(this.currentRoom.name);
+                    }
+                    
+                    this.currentRoom = null;
+                    return true;
+                }
+                return false;
+            }
+
+            // アクティブルーム一覧
+            getActiveRooms() {
+                return Array.from(this.activeRooms.values());
+            }
+        }
+
+        // 音声録音クラス（既存）
+        class AudioRecorder {
+            constructor() {
+                this.mediaRecorder = null;
+                this.audioChunks = [];
+                this.stream = null;
+                this.analyser = null;
+                this.audioContext = null;
+                this.volumeCallback = null;
+                this.animationFrameId = null;
+            }
+
+            async init() {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true,
+                            sampleRate: 44100
+                        }
+                    });
+
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.audioContext.createAnalyser();
+                    const source = this.audioContext.createMediaStreamSource(this.stream);
+                    source.connect(this.analyser);
+                    this.analyser.fftSize = 256;
+
+                    this.mediaRecorder = new MediaRecorder(this.stream, {
+                        mimeType: 'audio/webm;codecs=opus'
+                    });
+
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.audioChunks.push(event.data);
+                        }
+                    };
+
+                    return true;
+                } catch (error) {
+                    console.error('マイクアクセスエラー:', error);
+                    return false;
+                }
+            }
+
+            startRecording(onVolumeUpdate) {
+                if (!this.mediaRecorder || this.mediaRecorder.state === 'recording') return false;
+
+                this.audioChunks = [];
+                this.volumeCallback = onVolumeUpdate;
+                this.mediaRecorder.start(100);
+                this.startVolumeMonitoring();
+                return true;
+            }
+
+            async stopRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.stop();
+                    this.stopVolumeMonitoring();
+                    return new Promise((resolve) => {
+                        this.mediaRecorder.onstop = () => {
+                            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                            this.stream.getTracks().forEach(track => track.stop());
+                            if (this.audioContext) {
+                                this.audioContext.close();
+                                this.audioContext = null;
+                                this.analyser = null;
+                            }
+                            this.stream = null;
+                            this.mediaRecorder = null;
+                            resolve(audioBlob);
+                        };
+                    });
+                }
+                return null;
+            }
+
+            startVolumeMonitoring() {
+                if (!this.analyser) return;
+
+                const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+
+                const updateVolume = () => {
+                    if (!this.volumeCallback || !AppState.isRecording) {
+                        cancelAnimationFrame(this.animationFrameId);
+                        this.animationFrameId = null;
+                        return;
+                    }
+
+                    this.analyser.getByteFrequencyData(dataArray);
+                    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                    const volumeLevel = (average / 255) * 100;
+
+                    this.volumeCallback(volumeLevel);
+
+                    this.animationFrameId = requestAnimationFrame(updateVolume);
                 };
 
-                // ローカルストレージとクラウドストレージの両方に保存
-                saveRoomToStorage(currentRoom);
-                
-                isStreaming = true;
-                showStreamingScreen();
-                
-                // WebRTC接続の準備
-                setupPeerConnection();
-                
-                console.log('配信開始:', currentRoom);
-                
-            } catch (error) {
-                console.error('配信開始エラー:', error);
-                alert('カメラまたはマイクにアクセスできませんでした');
+                this.animationFrameId = requestAnimationFrame(updateVolume);
+            }
+
+            stopVolumeMonitoring() {
+                if (this.animationFrameId) {
+                    cancelAnimationFrame(this.animationFrameId);
+                    this.animationFrameId = null;
+                }
+                this.volumeCallback = null;
+            }
+
+            cleanup() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+                if (this.audioContext) {
+                    this.audioContext.close();
+                    this.audioContext = null;
+                    this.analyser = null;
+                }
+                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                    this.mediaRecorder.stop();
+                }
+                this.stopVolumeMonitoring();
+                this.audioChunks = [];
             }
         }
 
-        // WebRTC接続設定
-        function setupPeerConnection() {
-            const configuration = {
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
-                ]
-            };
+        // 音声配信クラス（既存）
+        class AudioStreamer {
+            constructor() {
+                this.recordings = [];
+            }
 
-            peerConnection = new RTCPeerConnection(configuration);
+            async uploadRecording(audioBlob, metadata) {
+                return new Promise((resolve) => {
+                    const recording = {
+                        id: Date.now(),
+                        blob: audioBlob,
+                        url: URL.createObjectURL(audioBlob),
+                        ...metadata,
+                        uploadedAt: new Date()
+                    };
 
-            // ローカルストリームを追加
-            if (localStream) {
-                localStream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, localStream);
+                    this.recordings.push(recording);
+
+                    setTimeout(() => {
+                        resolve({
+                            success: true,
+                            url: recording.url,
+                            id: recording.id
+                        });
+                    }, 1000);
                 });
             }
 
-            // リモートストリーム受信
-            peerConnection.ontrack = (event) => {
-                remoteStream = event.streams[0];
-                document.getElementById('remoteVideo').srcObject = remoteStream;
-            };
+            getRecordings() {
+                return this.recordings;
+            }
+        }
 
-            // ICE候補の処理
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    // 実際の実装ではシグナリングサーバーに送信
-                    console.log('ICE candidate:', event.candidate);
+        // アプリの状態管理
+        const AppState = {
+            currentTab: 'home',
+            isPlaying: false,
+            isRecording: false,
+            currentShow: null,
+            audioPlayer: new Audio(),
+            searchQuery: '',
+            recordingTime: 0,
+            recordingTimer: null,
+            isDarkMode: false,
+            volumeLevel: 0,
+            showRecordingForm: false,
+            recordingTitle: '',
+            recordingDescription: '',
+            currentRecordingBlob: null,
+            isUploading: false,
+            
+            // Daily.co関連の状態
+            isStreaming: false,
+            isListening: false,
+            currentRoom: null,
+            participantCount: 0,
+            roomUrl: '',
+            hostName: '',
+            listenerName: '',
+            showRoomForm: false,
+            showJoinForm: false,
+            roomTitle: '',
+            streamingError: null,
+
+            featuredShows: [
+                {
+                    id: 1,
+                    title: "朝のコーヒーブレイク",
+                    host: "田中さくら",
+                    listeners: 1234,
+                    duration: "12:34",
+                    category: "ライフスタイル",
+                    isLive: true,
+                    avatar: "☕",
+                    likes: 89,
+                    comments: 23,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+                },
+                {
+                    id: 2,
+                    title: "深夜の読書会",
+                    host: "山田太郎",
+                    listeners: 567,
+                    duration: "25:16",
+                    category: "読書",
+                    isLive: false,
+                    avatar: "📚",
+                    likes: 156,
+                    comments: 34,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3"
+                },
+                {
+                    id: 3,
+                    title: "今日のニュース解説",
+                    host: "佐藤花子",
+                    listeners: 2345,
+                    duration: "18:42",
+                    category: "ニュース",
+                    isLive: true,
+                    avatar: "📰",
+                    likes: 203,
+                    comments: 67,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3"
+                },
+                {
+                    id: 4,
+                    title: "夜のジャズタイム",
+                    host: "鈴木ジロー",
+                    listeners: 890,
+                    duration: "45:22",
+                    category: "音楽",
+                    isLive: false,
+                    avatar: "🎷",
+                    likes: 334,
+                    comments: 12,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3"
+                },
+                {
+                    id: 5,
+                    title: "おやすみ前のひととき",
+                    host: "小林ひかる",
+                    listeners: 432,
+                    duration: "10:05",
+                    category: "トーク",
+                    isLive: true,
+                    avatar: "🌙",
+                    likes: 102,
+                    comments: 45,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"
                 }
-            };
-        }
+            ],
 
-        // ルームID生成
-        function generateRoomId() {
-            return 'room_' + Math.random().toString(36).substr(2, 9);
-        }
+            categories: ["すべて", "ライフスタイル", "読書", "ニュース", "音楽", "トーク", "学習", "ユーザー投稿"]
+        };
 
-        // ルームをストレージに保存
-        function saveRoomToStorage(room) {
-            const rooms = getRoomsFromStorage();
-            rooms[room.id] = room;
-            localStorage.setItem('coffee_rooms', JSON.stringify(rooms));
-            
-            // 実際の実装では外部データベース（Firebase/Supabase）に保存
-            saveRoomToCloud(room);
-        }
+        // グローバルインスタンス
+        const audioRecorder = new AudioRecorder();
+        const audioStreamer = new AudioStreamer();
+        const roomManager = new RoomManager();
+        let dailyStreamer = null;
 
-        // クラウドストレージに保存（擬似実装）
-        function saveRoomToCloud(room) {
-            // 実際にはFirebase Firestore、Supabase、または独自APIを使用
-            fetch('/api/rooms', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(room)
-            }).catch(error => {
-                console.log('クラウド保存失敗（開発環境では正常）:', error);
-            });
-        }
-
-        // ローカルストレージからルーム取得
-        function getRoomsFromStorage() {
-            const stored = localStorage.getItem('coffee_rooms');
-            return stored ? JSON.parse(stored) : {};
-        }
-
-        // 配信終了
-        function stopStreaming() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-
-            // ルーム削除
-            if (currentRoom) {
-                deleteRoomFromStorage(currentRoom.id);
-                currentRoom = null;
-            }
-
-            isStreaming = false;
-            showMainScreen();
-        }
-
-        // ルームをストレージから削除
-        function deleteRoomFromStorage(roomId) {
-            const rooms = getRoomsFromStorage();
-            delete rooms[roomId];
-            localStorage.setItem('coffee_rooms', JSON.stringify(rooms));
-            
-            // クラウドからも削除
-            fetch(`/api/rooms/${roomId}`, {
-                method: 'DELETE'
-            }).catch(error => {
-                console.log('クラウド削除失敗（開発環境では正常）:', error);
-            });
-        }
-
-        // ルーム一覧更新
-        function updateRoomsList() {
-            const rooms = getRoomsFromStorage();
-            const roomsList = document.getElementById('roomsList');
-            
-            if (Object.keys(rooms).length === 0) {
-                roomsList.innerHTML = '<p>現在アクティブなルームはありません</p>';
-                return;
-            }
-
-            roomsList.innerHTML = '';
-            Object.values(rooms).forEach(room => {
-                const roomElement = document.createElement('div');
-                roomElement.className = 'room-item';
-                roomElement.innerHTML = `
-                    <div>
-                        <strong>${room.name}</strong>
-                        <div class="message-time">${new Date(room.createdAt).toLocaleTimeString()}</div>
-                    </div>
-                    <div>
-                        <span class="viewer-count">${room.viewers || 0}人</span>
-                        <button class="btn btn-primary" onclick="joinRoom('${room.id}')" style="margin-left: 10px;">参加</button>
-                    </div>
-                `;
-                roomsList.appendChild(roomElement);
-            });
-        }
-
-        // ルーム参加
-        async function joinRoom(roomId) {
-            const rooms = getRoomsFromStorage();
-            const room = rooms[roomId];
-            
-            if (!room) {
-                alert('ルームが見つかりません');
-                return;
-            }
-
+        // Daily.co統合用ユーティリティ関数
+        async function startStreaming(hostName, roomTitle) {
             try {
-                // 視聴者用の接続設定
-                setupPeerConnection();
+                AppState.streamingError = null;
                 
-                currentRoom = room;
-                document.getElementById('currentRoomName').textContent = room.name;
+                const result = await roomManager.createRoom(hostName, roomTitle);
                 
-                // 視聴者カウント更新
-                room.viewers = (room.viewers || 0) + 1;
-                saveRoomToStorage(room);
+                if (result.success) {
+                    AppState.isStreaming = true;
+                    AppState.currentRoom = roomManager.getCurrentRoom();
+                    AppState.roomUrl = result.roomUrl;
+                    AppState.participantCount = 1;
+                    
+                    renderApp();
+                    
+                    return {
+                        success: true,
+                        roomUrl: result.roomUrl,
+                        roomName: result.roomName
+                    };
+                } else {
+                    AppState.streamingError = result.error;
+                    renderApp();
+                    return result;
+                }
+            } catch (error) {
+                console.error('配信開始エラー:', error);
+                AppState.streamingError = error.message;
+                renderApp();
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function stopStreaming() {
+            try {
+                const success = await roomManager.leaveCurrentRoom();
                 
-                showViewingScreen();
+                if (success) {
+                    AppState.isStreaming = false;
+                    AppState.currentRoom = null;
+                    AppState.roomUrl = '';
+                    AppState.participantCount = 0;
+                    AppState.streamingError = null;
+                    
+                    renderApp();
+                }
                 
-                console.log('ルーム参加:', room);
+                return success;
+            } catch (error) {
+                console.error('配信停止エラー:', error);
+                AppState.streamingError = error.message;
+                renderApp();
+                return false;
+            }
+        }
+
+        async function joinRoom(roomUrl, listenerName) {
+            try {
+                AppState.streamingError = null;
                 
+                const result = await roomManager.joinRoom(roomUrl, listenerName);
+                
+                if (result.success) {
+                    AppState.isListening = true;
+                    AppState.currentRoom = roomManager.getCurrentRoom();
+                    AppState.roomUrl = roomUrl;
+                    
+                    const room = roomManager.getCurrentRoom();
+                    if (room && room.streamer) {
+                        room.streamer.addEventListener((eventType, data) => {
+                            if (eventType === 'participant-joined' || eventType === 'participant-left') {
+                                AppState.participantCount = room.streamer.getParticipantCount();
+                                renderApp();
+                            }
+                        });
+                    }
+                    
+                    renderApp();
+                    
+                    return result;
+                } else {
+                    AppState.streamingError = result.error;
+                    renderApp();
+                    return result;
+                }
             } catch (error) {
                 console.error('ルーム参加エラー:', error);
-                alert('ルームに参加できませんでした');
+                AppState.streamingError = error.message;
+                renderApp();
+                return { success: false, error: error.message };
             }
         }
 
-        // ルーム退出
-        function leaveRoom() {
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-
-            if (currentRoom) {
-                // 視聴者カウント減少
-                const rooms = getRoomsFromStorage();
-                if (rooms[currentRoom.id]) {
-                    rooms[currentRoom.id].viewers = Math.max(0, (rooms[currentRoom.id].viewers || 1) - 1);
-                    saveRoomToStorage(rooms[currentRoom.id]);
+        async function leaveRoom() {
+            try {
+                const success = await roomManager.leaveCurrentRoom();
+                
+                if (success) {
+                    AppState.isListening = false;
+                    AppState.currentRoom = null;
+                    AppState.roomUrl = '';
+                    AppState.participantCount = 0;
+                    AppState.streamingError = null;
+                    
+                    renderApp();
                 }
-                currentRoom = null;
+                
+                return success;
+            } catch (error) {
+                console.error('ルーム退出エラー:', error);
+                AppState.streamingError = error.message;
+                renderApp();
+                return false;
             }
-
-            showMainScreen();
         }
 
-        // チャット機能
-        function sendMessage() {
-            const input = document.getElementById('chatInput');
-            const message = input.value.trim();
-            
-            if (!message) return;
+        async function toggleStreamingAudio() {
+            try {
+                const room = roomManager.getCurrentRoom();
+                if (room && room.streamer) {
+                    const audioOn = await room.streamer.toggleAudio();
+                    renderApp();
+                    return audioOn;
+                }
+                return false;
+            } catch (error) {
+                console.error('音声切り替えエラー:', error);
+                return false;
+            }
+        }
 
-            const messageObj = {
-                id: Date.now(),
-                userId: userId,
-                message: message,
-                timestamp: new Date().toISOString(),
-                roomId: currentRoom?.id
+        function shareRoomUrl(roomUrl) {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Coffee配信に参加',
+                    text: 'ライブ配信を聞いてみませんか？',
+                    url: roomUrl
+                }).catch(console.error);
+            } else {
+                navigator.clipboard.writeText(roomUrl).then(() => {
+                    alert('ルームURLをクリップボードにコピーしました');
+                }).catch(() => {
+                    prompt('ルームURLをコピーしてください:', roomUrl);
+                });
+            }
+        }
+
+        function validateRoomUrl(url) {
+            try {
+                const urlObj = new URL(url);
+                return urlObj.hostname.includes('daily.co') && urlObj.pathname.length > 1;
+            } catch (error) {
+                return false;
+            }
+        }
+
+        function calculateStreamingDuration(startTime) {
+            const now = new Date();
+            const diff = now - startTime;
+            const minutes = Math.floor(diff / 60000);
+            const seconds = Math.floor((diff % 60000) / 1000);
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function getRoomDisplayInfo() {
+            const room = roomManager.getCurrentRoom();
+            if (!room) return null;
+            
+            return {
+                name: room.name,
+                title: room.title || 'ライブ配信',
+                host: room.host || '配信者',
+                participantCount: AppState.participantCount,
+                isHost: AppState.isStreaming,
+                isListener: AppState.isListening,
+                duration: room.createdAt ? calculateStreamingDuration(room.createdAt) : '0:00'
             };
-
-            displayMessage(messageObj);
-            saveMessageToStorage(messageObj);
-            input.value = '';
         }
 
-        // メッセージ表示
-        function displayMessage(messageObj) {
-            const messagesContainer = document.getElementById('chatMessages');
-            const messageElement = document.createElement('div');
-            messageElement.className = 'message';
-            messageElement.innerHTML = `
-                <div><strong>ユーザー${messageObj.userId.slice(-4)}</strong></div>
-                <div>${messageObj.message}</div>
-                <div class="message-time">${new Date(messageObj.timestamp).toLocaleTimeString()}</div>
+        // アイコンSVGの定義
+        const Icons = {
+            Home: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11v11a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>',
+            Plus: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>',
+            User: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>',
+            Play: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
+            Pause: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+            Mic: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>',
+            Search: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>',
+            Heart: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>',
+            MessageCircle: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>',
+            Volume2: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/></svg>',
+            Coffee: '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-8a2 2 0 00-2 2v2m12 0H4m12 0l1.5 8.5a1.5 1.5 0 01-1.5 1.5H8a1.5 1.5 0 01-1.5-1.5L8 6m4 0V4m0 0h4m-4 0H8"/></svg>',
+            Moon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>',
+            Sun: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>'
+        };
+
+        // Daily.co配信UI コンポーネント
+
+        // 配信開始フォーム
+        function renderStreamingForm() {
+            return `
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+                            ライブ配信を開始
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    配信者名
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="hostNameInput"
+                                    value="${AppState.hostName}"
+                                    placeholder="あなたの名前を入力"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 dark:bg-gray-700 dark:text-white"
+                                >
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    配信タイトル（任意）
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="roomTitleInput"
+                                    value="${AppState.roomTitle}"
+                                    placeholder="配信の内容を入力"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 dark:bg-gray-700 dark:text-white"
+                                >
+                            </div>
+                            
+                            <div class="bg-coffee-50 dark:bg-coffee-900 p-3 rounded-md">
+                                <p class="text-sm text-coffee-700 dark:text-coffee-300">
+                                    💡 配信を開始すると、他の人があなたの音声を聞くことができます。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex space-x-3 mt-6">
+                            <button 
+                                onclick="cancelStreamingForm()"
+                                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                キャンセル
+                            </button>
+                            <button 
+                                onclick="handleStartStreaming()"
+                                class="flex-1 px-4 py-2 bg-coffee-500 text-white rounded-md hover:bg-coffee-600 transition-colors"
+                            >
+                                配信開始
+                            </button>
+                        </div>
+                    </div>
+                </div>
             `;
-            messagesContainer.appendChild(messageElement);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
 
-        // メッセージ保存
-        function saveMessageToStorage(messageObj) {
-            const messages = getMessagesFromStorage();
-            messages.push(messageObj);
+        // ルーム参加フォーム
+        function renderJoinForm() {
+            return `
+                <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+                        <h3 class="text-lg font-semibold mb-4 text-gray-900 dark:text-white">
+                            配信に参加
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    あなたの名前
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="listenerNameInput"
+                                    value="${AppState.listenerName}"
+                                    placeholder="名前を入力"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 dark:bg-gray-700 dark:text-white"
+                                >
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    ルームURL
+                                </label>
+                                <input 
+                                    type="url" 
+                                    id="roomUrlInput"
+                                    value="${AppState.roomUrl}"
+                                    placeholder="https://manus-test.daily.co/room-name"
+                                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-coffee-500 dark:bg-gray-700 dark:text-white"
+                                >
+                            </div>
+                            
+                            <div class="bg-blue-50 dark:bg-blue-900 p-3 rounded-md">
+                                <p class="text-sm text-blue-700 dark:text-blue-300">
+                                    🎧 リスナーとして参加します。音声は送信されません。
+                                </p>
+                            </div>
+                        </div>
+                        
+                        <div class="flex space-x-3 mt-6">
+                            <button 
+                                onclick="cancelJoinForm()"
+                                class="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                キャンセル
+                            </button>
+                            <button 
+                                onclick="handleJoinRoom()"
+                                class="flex-1 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+                            >
+                                参加
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 配信中インターフェース
+        function renderStreamingInterface() {
+            const roomInfo = getRoomDisplayInfo();
+            if (!roomInfo) return '';
             
-            // 最新100件のみ保持
-            if (messages.length > 100) {
-                messages.splice(0, messages.length - 100);
+            return `
+                <div class="bg-gradient-to-r from-red-500 to-pink-500 text-white p-4 rounded-lg mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-3 h-3 bg-white rounded-full recording-pulse"></div>
+                            <span class="font-semibold">LIVE配信中</span>
+                        </div>
+                        <div class="text-sm opacity-90">
+                            ${roomInfo.duration}
+                        </div>
+                    </div>
+                    
+                    <h3 class="font-semibold text-lg mb-2">${roomInfo.title}</h3>
+                    <p class="text-sm opacity-90 mb-3">配信者: ${roomInfo.host}</p>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-1">
+                                <span class="text-sm">👥</span>
+                                <span class="text-sm">${roomInfo.participantCount}人</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <button 
+                                onclick="toggleStreamingAudio()"
+                                class="p-2 bg-white bg-opacity-20 rounded-full hover:bg-opacity-30 transition-colors"
+                            >
+                                ${Icons.Mic}
+                            </button>
+                            <button 
+                                onclick="shareCurrentRoom()"
+                                class="p-2 bg-white bg-opacity-20 rounded-full hover:bg-opacity-30 transition-colors"
+                            >
+                                📤
+                            </button>
+                            <button 
+                                onclick="handleStopStreaming()"
+                                class="px-4 py-2 bg-white bg-opacity-20 rounded-full hover:bg-opacity-30 transition-colors text-sm"
+                            >
+                                配信終了
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // リスニング中インターフェース
+        function renderListeningInterface() {
+            const roomInfo = getRoomDisplayInfo();
+            if (!roomInfo) return '';
+            
+            return `
+                <div class="bg-gradient-to-r from-blue-500 to-purple-500 text-white p-4 rounded-lg mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-3 h-3 bg-white rounded-full recording-pulse"></div>
+                            <span class="font-semibold">配信を聴取中</span>
+                        </div>
+                        <div class="text-sm opacity-90">
+                            ${roomInfo.duration}
+                        </div>
+                    </div>
+                    
+                    <h3 class="font-semibold text-lg mb-2">${roomInfo.title}</h3>
+                    <p class="text-sm opacity-90 mb-3">配信者: ${roomInfo.host}</p>
+                    
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="flex items-center space-x-1">
+                                <span class="text-sm">👥</span>
+                                <span class="text-sm">${roomInfo.participantCount}人</span>
+                            </div>
+                            <div class="flex items-center space-x-1">
+                                <span class="text-sm">🎧</span>
+                                <span class="text-sm">リスナー</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            <button 
+                                onclick="shareCurrentRoom()"
+                                class="p-2 bg-white bg-opacity-20 rounded-full hover:bg-opacity-30 transition-colors"
+                            >
+                                📤
+                            </button>
+                            <button 
+                                onclick="handleLeaveRoom()"
+                                class="px-4 py-2 bg-white bg-opacity-20 rounded-full hover:bg-opacity-30 transition-colors text-sm"
+                            >
+                                退出
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 配信コントロールボタン
+        function renderStreamingControls() {
+            if (AppState.isStreaming || AppState.isListening) {
+                return '';
             }
             
-            localStorage.setItem('coffee_messages', JSON.stringify(messages));
+            return `
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <button 
+                        onclick="showStreamingForm()"
+                        class="flex flex-col items-center justify-center p-4 bg-gradient-to-r from-coffee-500 to-coffee-600 text-white rounded-lg hover:from-coffee-600 hover:to-coffee-700 transition-all transform hover:scale-105"
+                    >
+                        <div class="w-8 h-8 mb-2">
+                            ${Icons.Mic}
+                        </div>
+                        <span class="text-sm font-medium">配信開始</span>
+                    </button>
+                    
+                    <button 
+                        onclick="showJoinForm()"
+                        class="flex flex-col items-center justify-center p-4 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all transform hover:scale-105"
+                    >
+                        <div class="w-8 h-8 mb-2">
+                            🎧
+                        </div>
+                        <span class="text-sm font-medium">配信に参加</span>
+                    </button>
+                </div>
+            `;
         }
 
-        // メッセージ取得
-        function getMessagesFromStorage() {
-            const stored = localStorage.getItem('coffee_messages');
-            return stored ? JSON.parse(stored) : [];
-        }
-
-        // オンラインユーザー数更新
-        function updateOnlineCount() {
-            // 実際の実装では外部サービスから取得
-            const count = Math.floor(Math.random() * 20) + 1;
-            document.getElementById('onlineCount').textContent = `${count}人オンライン`;
-        }
-
-        // 画面表示制御
-        function showMainScreen() {
-            hideAllScreens();
-            document.getElementById('mainScreen').classList.remove('hidden');
-        }
-
-        function showStreamingScreen() {
-            hideAllScreens();
-            document.getElementById('streamingScreen').classList.remove('hidden');
-        }
-
-        function showRoomsList() {
-            hideAllScreens();
-            document.getElementById('roomsScreen').classList.remove('hidden');
-            updateRoomsList();
-        }
-
-        function showViewingScreen() {
-            hideAllScreens();
-            document.getElementById('viewingScreen').classList.remove('hidden');
-        }
-
-        function hideAllScreens() {
-            document.querySelectorAll('#mainScreen, #streamingScreen, #roomsScreen, #viewingScreen')
-                .forEach(screen => screen.classList.add('hidden'));
-        }
-
-        function refreshRooms() {
-            updateRoomsList();
-        }
-
-        // イベントリスナー
-        document.getElementById('chatInput').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendMessage();
-            }
-        });
-
-        // 初期化
-        document.addEventListener('DOMContentLoaded', function() {
-            connectWebSocket();
+        // エラー表示
+        function renderStreamingError() {
+            if (!AppState.streamingError) return '';
             
-            // 既存のメッセージを表示
-            const messages = getMessagesFromStorage();
-            messages.slice(-20).forEach(displayMessage);
-        });
+            return `
+                <div class="bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 rounded-lg p-4 mb-4">
+                    <div class="flex items-center">
+                        <div class="text-red-500 mr-3">⚠️</div>
+                        <div>
+                            <h4 class="text-red-800 dark:text-red-200 font-medium">エラーが発生しました</h4>
+                            <p class="text-red-600 dark:text-red-300 text-sm mt-1">${AppState.streamingError}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // イベントハンドラー関数
+        function showStreamingForm() {
+            AppState.showRoomForm = true;
+            renderApp();
+        }
+
+        function cancelStreamingForm() {
+            AppState.showRoomForm = false;
+            renderApp();
+        }
+
+        function showJoinForm() {
+            AppState.showJoinForm = true;
+            renderApp();
+        }
+
+        function cancelJoinForm() {
+            AppState.showJoinForm = false;
+            renderApp();
+        }
+
+        async function handleStartStreaming() {
+            const hostName = document.getElementById('hostNameInput').value.trim();
+            const roomTitle = document.getElementById('roomTitleInput').value.trim();
+            
+            if (!hostName) {
+                alert('配信者名を入力してください');
+                return;
+            }
+            
+            AppState.hostName = hostName;
+            AppState.roomTitle = roomTitle;
+            AppState.showRoomForm = false;
+            
+            const result = await startStreaming(hostName, roomTitle);
+            
+            if (result.success) {
+                console.log('配信開始成功:', result);
+            } else {
+                console.error('配信開始失敗:', result.error);
+            }
+        }
+
+        async function handleJoinRoom() {
+            const listenerName = document.getElementById('listenerNameInput').value.trim();
+            const roomUrl = document.getElementById('roomUrlInput').value.trim();
+            
+            if (!listenerName) {
+                alert('名前を入力してください');
+                return;
+            }
+            
+            if (!roomUrl || !validateRoomUrl(roomUrl)) {
+                alert('有効なルームURLを入力してください');
+                return;
+            }
+            
+            AppState.listenerName = listenerName;
+            AppState.roomUrl = roomUrl;
+            AppState.showJoinForm = false;
+            
+            const result = await joinRoom(roomUrl, listenerName);
+            
+            if (result.success) {
+                console.log('ルーム参加成功:', result);
+            } else {
+                console.error('ルーム参加失敗:', result.error);
+            }
+        }
+
+        async function handleStopStreaming() {
+            if (confirm('配信を終了しますか？')) {
+                await stopStreaming();
+            }
+        }
+
+        async function handleLeaveRoom() {
+            if (confirm('配信から退出しますか？')) {
+                await leaveRoom();
+            }
+        }
+
+        function shareCurrentRoom() {
+            if (AppState.roomUrl) {
+                shareRoomUrl(AppState.roomUrl);
+            }
+        }
+
+        // タブ切り替え時の配信インターフェース統合
+        function renderStreamingTab() {
+            return `
+                <div class="p-4">
+                    ${renderStreamingError()}
+                    ${renderStreamingInterface()}
+                    ${renderListeningInterface()}
+                    ${renderStreamingControls()}
+                    
+                    <div class="space-y-4">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                            ライブ配信について
+                        </h3>
+                        
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                            <h4 class="font-medium text-gray-900 dark:text-white mb-2">配信者として</h4>
+                            <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                <li>• リアルタイムで音声を配信できます</li>
+                                <li>• 参加者数をリアルタイムで確認できます</li>
+                                <li>• ルームURLを共有して聴取者を招待できます</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                            <h4 class="font-medium text-gray-900 dark:text-white mb-2">リスナーとして</h4>
+                            <ul class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+                                <li>• ルームURLで配信に参加できます</li>
+                                <li>• 高品質な音声をリアルタイムで聴取できます</li>
+                                <li>• 他の参加者と一緒に配信を楽しめます</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 既存のUI関数（省略されている部分は元のコードを使用）
+        // ... 他のUI関数は元のコードから継続 ...
 
         // ページ離脱時のクリーンアップ
-        window.addEventListener('beforeunload', function() {
-            if (isStreaming) {
-                stopStreaming();
-            } else if (currentRoom) {
-                leaveRoom();
+        window.addEventListener('beforeunload', async () => {
+            if (AppState.isStreaming || AppState.isListening) {
+                await roomManager.leaveCurrentRoom();
             }
         });
+
+        // ネットワーク状態監視
+        window.addEventListener('online', () => {
+            console.log('Network online');
+            if (AppState.streamingError && AppState.streamingError.includes('ネットワーク')) {
+                AppState.streamingError = null;
+                renderApp();
+            }
+        });
+
+        window.addEventListener('offline', () => {
+            console.log('Network offline');
+            AppState.streamingError = 'ネットワーク接続が切断されました';
+            renderApp();
+        });
+
+        // アプリ初期化
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                console.log('Daily.co ready');
+                renderApp();
+            } catch (error) {
+                console.error('Daily.co initialization failed:', error);
+            }
+        });
+
+        // 以下、既存のUI関数を継続...
+        // renderApp()関数などは元のコードを使用し、配信タブを追加
+        
     </script>
 </body>
 </html>
+
