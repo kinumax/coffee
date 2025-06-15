@@ -3,604 +3,515 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PeerJS 音声通話ルームアプリ</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.4.7/peerjs.min.js"></script>
+    <title>Coffee - 音声配信アプリ</title>
+    <meta name="description" content="Coffeeは音声配信プラットフォームです。お気に入りの番組を聴いたり、自分で配信したりできます。">
+    <meta name="keywords" content="音声配信, ポッドキャスト, ラジオ, 音声メディア">
+    <meta name="author" content="Coffee Team">
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        coffee: {
+                            50: '#fdf8f0',
+                            100: '#fbeee0',
+                            200: '#f6d6b3',
+                            300: '#f0c185',
+                            400: '#e8a852',
+                            500: '#d2691e',
+                            600: '#b8651e',
+                            700: '#9e5a1a',
+                            800: '#844e16',
+                            900: '#6a4113'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: white;
+        @keyframes pulse-recording {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
-        
-        .container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 15px;
-            padding: 30px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        .recording-pulse {
+            animation: pulse-recording 1s ease-in-out infinite;
         }
-        
-        h1 {
-            text-align: center;
-            margin-bottom: 30px;
-            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        .wave-animation {
+            animation: wave 2s ease-in-out infinite;
         }
-        
-        .status {
-            text-align: center;
-            margin-bottom: 20px;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: bold;
+        @keyframes wave {
+            0%, 100% { transform: scaleY(1); }
+            50% { transform: scaleY(1.5); }
         }
-        
-        .status.connected {
-            background: rgba(76, 175, 80, 0.3);
-            border: 2px solid #4CAF50;
-        }
-        
-        .status.disconnected {
-            background: rgba(244, 67, 54, 0.3);
-            border: 2px solid #f44336;
-        }
-        
-        .peer-id {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            word-break: break-all;
-        }
-        
-        .section {
-            margin-bottom: 30px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .section h3 {
-            margin-top: 0;
-            color: #FFD700;
-        }
-        
-        input, button, select {
-            padding: 12px;
-            margin: 5px;
-            border: none;
-            border-radius: 6px;
-            font-size: 16px;
-        }
-        
-        input {
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-            flex: 1;
-        }
-        
-        button {
-            background: #4CAF50;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        button:hover {
-            background: #45a049;
-            transform: translateY(-2px);
-        }
-        
-        button:disabled {
-            background: #666;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .button-danger {
-            background: #f44336 !important;
-        }
-        
-        .button-danger:hover {
-            background: #d32f2f !important;
-        }
-        
-        .input-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-        
-        .rooms-list {
-            max-height: 200px;
-            overflow-y: auto;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            padding: 10px;
-        }
-        
-        .room-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            margin-bottom: 10px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-        }
-        
-        .call-controls {
-            text-align: center;
-            margin: 20px 0;
-        }
-        
-        .timer {
-            font-size: 24px;
-            font-weight: bold;
-            text-align: center;
-            margin: 20px 0;
-            color: #FFD700;
-        }
-        
-        .chat-container {
-            max-height: 300px;
-            overflow-y: auto;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-        
-        .chat-message {
-            margin-bottom: 10px;
-            padding: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 6px;
-        }
-        
-        .participants {
-            background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-        
-        .hidden {
-            display: none;
-        }
-        
-        @media (max-width: 600px) {
-            .container {
-                padding: 15px;
-            }
-            
-            .input-group {
-                flex-direction: column;
-            }
+        /* QRコードのキャンバスが親要素のサイズに合わせるためのスタイル */
+        .qrcode-container canvas {
+            width: 100% !important;
+            height: 100% !important;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>🎙️ 音声通話ルームアプリ</h1>
-        
-        <div id="status" class="status disconnected">未接続</div>
-        
-        <div class="peer-id">
-            <strong>あなたのPeer ID:</strong>
-            <div id="peer-id">ID生成中...</div>
-            <small>このIDは開発用です。</small>
-        </div>
-        
-        <div class="section">
-            <h3>🏠 新しいルームを作成</h3>
-            <p>ルームを作成してホストになる</p>
-            <div class="input-group">
-                <input type="text" id="room-name" placeholder="ルーム名を入力">
-                <button id="create-room">ルーム作成</button>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h3>🔍 ルームに参加</h3>
-            <div class="input-group">
-                <input type="text" id="join-room-id" placeholder="参加したいルームIDを入力">
-                <button id="join-room">参加</button>
-            </div>
-        </div>
-        
-        <div class="section">
-            <h3>📝 参加可能なルーム</h3>
-            <div class="rooms-list">
-                <div id="rooms-container">
-                    <p>利用可能なルーム一覧は実際のサーバー実装が必要です</p>
-                </div>
-            </div>
-            <button id="refresh-rooms">ルーム一覧を更新</button>
-        </div>
-        
-        <div id="call-section" class="section hidden">
-            <h3>📞 通話中</h3>
-            <div class="participants">
-                <strong>参加者:</strong>
-                <div id="participants-list"></div>
-            </div>
-            
-            <div class="timer" id="call-timer">0:00</div>
-            
-            <div class="call-controls">
-                <button id="mute-btn">🎤 ミュート</button>
-                <button id="end-call" class="button-danger">📞 通話を終了</button>
-            </div>
-            
-            <h4>💬 チャット</h4>
-            <div class="chat-container" id="chat-messages"></div>
-            <div class="input-group">
-                <input type="text" id="chat-input" placeholder="メッセージを入力...">
-                <button id="send-chat">送信</button>
-            </div>
-        </div>
-    </div>
+<body class="bg-gradient-to-b from-amber-50 to-orange-50 min-h-screen">
+    <div id="app" class="max-w-md mx-auto min-h-screen relative"></div>
 
     <script>
-        let peer = null;
-        let currentCall = null;
-        let currentRoom = null;
-        let localStream = null;
-        let isHost = false;
-        let roomConnections = new Map();
-        let callStartTime = null;
-        let timerInterval = null;
-        let isMuted = false;
-
-        // DOM要素の取得
-        const statusEl = document.getElementById('status');
-        const peerIdEl = document.getElementById('peer-id');
-        const createRoomBtn = document.getElementById('create-room');
-        const joinRoomBtn = document.getElementById('join-room');
-        const roomNameInput = document.getElementById('room-name');
-        const joinRoomInput = document.getElementById('join-room-id');
-        const callSection = document.getElementById('call-section');
-        const endCallBtn = document.getElementById('end-call');
-        const muteBtn = document.getElementById('mute-btn');
-        const callTimerEl = document.getElementById('call-timer');
-        const chatMessages = document.getElementById('chat-messages');
-        const chatInput = document.getElementById('chat-input');
-        const sendChatBtn = document.getElementById('send-chat');
-        const participantsList = document.getElementById('participants-list');
-        const refreshRoomsBtn = document.getElementById('refresh-rooms');
-
-        // PeerJS初期化
-        function initializePeer() {
-            try {
-                // PeerJSサーバーの設定（複数のサーバーを試行）
-                const config = {
-                    host: 'peerjs-server.herokuapp.com',
-                    port: 443,
-                    path: '/',
-                    secure: true,
-                    config: {
-                        'iceServers': [
-                            { urls: 'stun:stun.l.google.com:19302' },
-                            { urls: 'stun:stun1.l.google.com:19302' }
-                        ]
-                    }
-                };
-
-                peer = new Peer(config);
-
-                peer.on('open', function(id) {
-                    console.log('Peer接続成功:', id);
-                    peerIdEl.textContent = id;
-                    statusEl.textContent = '接続済み';
-                    statusEl.className = 'status connected';
-                    
-                    // ボタンを有効化
-                    createRoomBtn.disabled = false;
-                    joinRoomBtn.disabled = false;
-                });
-
-                peer.on('call', function(call) {
-                    console.log('着信:', call.peer);
-                    
-                    // 自動的に通話を受け入れる（実際のアプリでは確認ダイアログを表示）
-                    if (confirm('通話を受け入れますか？')) {
-                        navigator.mediaDevices.getUserMedia({ audio: true })
-                            .then(stream => {
-                                localStream = stream;
-                                call.answer(stream);
-                                handleCall(call);
-                            })
-                            .catch(err => {
-                                console.error('マイクアクセスエラー:', err);
-                                alert('マイクへのアクセスが必要です');
-                            });
-                    }
-                });
-
-                peer.on('connection', function(conn) {
-                    console.log('データ接続:', conn.peer);
-                    setupDataConnection(conn);
-                });
-
-                peer.on('error', function(err) {
-                    console.error('Peerエラー:', err);
-                    statusEl.textContent = `エラー: ${err.message}`;
-                    statusEl.className = 'status disconnected';
-                    
-                    // フォールバック: デフォルトサーバーを試行
-                    if (err.type === 'server-error' || err.type === 'network') {
-                        console.log('デフォルトサーバーで再試行...');
-                        setTimeout(() => {
-                            peer = new Peer();
-                            initializePeerEvents();
-                        }, 2000);
-                    }
-                });
-
-            } catch (error) {
-                console.error('Peer初期化エラー:', error);
-                // フォールバック: デフォルトのPeerJSサーバーを使用
-                peer = new Peer();
-                initializePeerEvents();
-            }
-        }
-
-        function initializePeerEvents() {
-            peer.on('open', function(id) {
-                peerIdEl.textContent = id;
-                statusEl.textContent = '接続済み';
-                statusEl.className = 'status connected';
-                createRoomBtn.disabled = false;
-                joinRoomBtn.disabled = false;
-            });
-
-            peer.on('call', function(call) {
-                if (confirm('通話を受け入れますか？')) {
-                    navigator.mediaDevices.getUserMedia({ audio: true })
-                        .then(stream => {
-                            localStream = stream;
-                            call.answer(stream);
-                            handleCall(call);
-                        })
-                        .catch(err => {
-                            console.error('マイクアクセスエラー:', err);
-                            alert('マイクへのアクセスが必要です');
-                        });
+        // アプリの状態管理
+        const AppState = {
+            currentTab: 'home',
+            isPlaying: false,
+            isRecording: false,
+            currentShow: null,
+            searchQuery: '',
+            recordingTime: 0,
+            recordingTimer: null,
+            // ユーザーのXRP Ledgerウォレットアドレスを保持
+            xrplWalletAddress: localStorage.getItem('xrplWalletAddress') || '',
+            
+            featuredShows: [
+                {
+                    id: 1,
+                    title: "朝のコーヒーブレイク",
+                    host: "田中さくら",
+                    listeners: 1234,
+                    duration: "12:34",
+                    category: "ライフスタイル",
+                    isLive: true,
+                    avatar: "☕",
+                    likes: 89,
+                    comments: 23
+                },
+                {
+                    id: 2,
+                    title: "深夜の読書会",
+                    host: "山田太郎",
+                    listeners: 567,
+                    duration: "25:16",
+                    category: "読書",
+                    isLive: false,
+                    avatar: "📚",
+                    likes: 156,
+                    comments: 34
+                },
+                {
+                    id: 3,
+                    title: "今日のニュース解説",
+                    host: "佐藤花子",
+                    listeners: 2345,
+                    duration: "18:42",
+                    category: "ニュース",
+                    isLive: true,
+                    avatar: "📰",
+                    likes: 203,
+                    comments: 67
+                },
+                {
+                    id: 4,
+                    title: "夜のジャズタイム",
+                    host: "鈴木ジロー",
+                    listeners: 890,
+                    duration: "45:22",
+                    category: "音楽",
+                    isLive: false,
+                    avatar: "🎷",
+                    likes: 334,
+                    comments: 12
                 }
-            });
-
-            peer.on('connection', setupDataConnection);
-            peer.on('error', function(err) {
-                console.error('Peerエラー:', err);
-                statusEl.textContent = `接続エラー`;
-                statusEl.className = 'status disconnected';
-            });
-        }
-
-        // データ接続の設定
-        function setupDataConnection(conn) {
-            conn.on('data', function(data) {
-                if (data.type === 'chat') {
-                    addChatMessage(data.message, data.sender);
-                } else if (data.type === 'room-info') {
-                    updateParticipants(data.participants);
-                }
-            });
-
-            conn.on('open', function() {
-                roomConnections.set(conn.peer, conn);
-                updateParticipants();
-            });
-
-            conn.on('close', function() {
-                roomConnections.delete(conn.peer);
-                updateParticipants();
-            });
-        }
-
-        // 通話の処理
-        function handleCall(call) {
-            currentCall = call;
-            callSection.classList.remove('hidden');
-            startCallTimer();
-
-            call.on('stream', function(remoteStream) {
-                console.log('リモート音声ストリーム受信');
-                const audio = new Audio();
-                audio.srcObject = remoteStream;
-                audio.play();
-            });
-
-            call.on('close', function() {
-                console.log('通話終了');
-                endCall();
-            });
-        }
-
-        // ルーム作成
-        createRoomBtn.addEventListener('click', function() {
-            const roomName = roomNameInput.value.trim();
-            if (!roomName) {
-                alert('ルーム名を入力してください');
-                return;
-            }
-
-            currentRoom = peer.id;
-            isHost = true;
+            ],
             
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    localStream = stream;
-                    callSection.classList.remove('hidden');
-                    addChatMessage(`ルーム "${roomName}" を作成しました。ルームID: ${currentRoom}`, 'システム');
-                    updateParticipants();
-                })
-                .catch(err => {
-                    console.error('マイクアクセスエラー:', err);
-                    alert('マイクへのアクセスが必要です');
+            categories: ["すべて", "ライフスタイル", "読書", "ニュース", "音楽", "トーク", "学習"]
+        };
+
+        // アイコンSVGの定義
+        const Icons = {
+            Home: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11v11a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>',
+            Plus: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>',
+            User: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>',
+            Play: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>',
+            Pause: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',
+            Mic: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>',
+            Search: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>',
+            Heart: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>',
+            MessageCircle: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>',
+            Share2: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/></svg>',
+            Volume2: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/></svg>',
+            Coffee: '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-8a2 2 0 00-2 2v2m12 0H4m12 0l1.5 8.5a1.5 1.5 0 01-1.5 1.5H8a1.5 1.5 0 01-1.5-1.5L8 6m4 0V4m0 0h4m-4 0H8"/></svg>'
+        };
+
+        // ユーティリティ関数
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return mins + ':' + secs.toString().padStart(2, '0');
+        }
+
+        function formatNumber(num) {
+            return num.toLocaleString();
+        }
+
+        function createIcon(iconName, className = '') {
+            const icon = Icons[iconName];
+            if (!icon) return '';
+            if (className) {
+                return icon.replace('class="', `class="${className} `);
+            }
+            return icon;
+        }
+
+        // イベントハンドラー
+        function handleTabChange(tab) {
+            AppState.currentTab = tab;
+            render();
+            // プロフィールタブに切り替わった際にQRコードを生成
+            if (tab === 'profile' && AppState.xrplWalletAddress) {
+                setTimeout(() => generateQRCode('profile-qr-code', AppState.xrplWalletAddress, 256), 0);
+            }
+            // 録音タブに切り替わった際にQRコードを生成（小さく表示）
+            if (tab === 'create' && AppState.xrplWalletAddress) {
+                setTimeout(() => generateQRCode('small-qr-code', AppState.xrplWalletAddress, 64), 0);
+            }
+        }
+
+        function handlePlay(showId) {
+            const show = AppState.featuredShows.find(s => s.id === showId);
+            if (!show) return;
+            
+            if (AppState.currentShow && AppState.currentShow.id === show.id) {
+                AppState.isPlaying = !AppState.isPlaying;
+            } else {
+                AppState.currentShow = show;
+                AppState.isPlaying = true;
+            }
+            render();
+        }
+
+        function handleRecord() {
+            if (AppState.isRecording) {
+                AppState.isRecording = false;
+                AppState.recordingTime = 0;
+                if (AppState.recordingTimer) {
+                    clearInterval(AppState.recordingTimer);
+                }
+            } else {
+                AppState.isRecording = true;
+                AppState.recordingTime = 0;
+                AppState.recordingTimer = setInterval(() => {
+                    AppState.recordingTime++;
+                    updateRecordingTime();
+                }, 1000);
+            }
+            render();
+        }
+
+        function handleSearch(query) {
+            AppState.searchQuery = query;
+            render();
+        }
+
+        function handleLike(showId) {
+            const show = AppState.featuredShows.find(s => s.id === showId);
+            if (show) {
+                show.likes++;
+                render();
+            }
+        }
+
+        function updateRecordingTime() {
+            const timeElement = document.getElementById('recording-time');
+            if (timeElement) {
+                timeElement.textContent = formatTime(AppState.recordingTime);
+            }
+        }
+
+        // ウォレットアドレスの入力・保存
+        function handleWalletAddressInput(value) {
+            AppState.xrplWalletAddress = value;
+            localStorage.setItem('xrplWalletAddress', value); // ローカルストレージに保存
+        }
+
+        // QRコード生成関数
+        function generateQRCode(elementId, text, size) {
+            const qrCodeElement = document.getElementById(elementId);
+            if (qrCodeElement && text) {
+                qrCodeElement.innerHTML = ''; // 既存のQRコードをクリア
+                new QRCode(qrCodeElement, {
+                    text: text,
+                    width: size,
+                    height: size,
+                    colorDark : "#000000",
+                    colorLight : "#ffffff",
+                    correctLevel : QRCode.CorrectLevel.H
                 });
-        });
+            } else if (qrCodeElement) {
+                 qrCodeElement.innerHTML = '<p class="text-sm text-gray-500">ウォレットアドレスを入力してください</p>';
+            }
+        }
 
-        // ルーム参加
-        joinRoomBtn.addEventListener('click', function() {
-            const roomId = joinRoomInput.value.trim();
-            if (!roomId) {
-                alert('ルームIDを入力してください');
-                return;
+        // コンポーネント生成関数
+        function createShowCard(show) {
+            const filteredShows = AppState.searchQuery
+                ? AppState.featuredShows.filter(s =>
+                    s.title.toLowerCase().includes(AppState.searchQuery.toLowerCase()) ||
+                    s.host.toLowerCase().includes(AppState.searchQuery.toLowerCase()) ||
+                    s.category.toLowerCase().includes(AppState.searchQuery.toLowerCase())
+                  )
+                : AppState.featuredShows;
+            
+            if (AppState.searchQuery && !filteredShows.includes(show)) {
+                return '';
             }
 
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    localStream = stream;
+            const liveIndicator = show.isLive ? '<span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">LIVE</span>' : '';
+            const playButtonIcon = (AppState.currentShow && AppState.currentShow.id === show.id && AppState.isPlaying)
+                ? createIcon('Pause')
+                : createIcon('Play');
+
+            return `
+                <div class="bg-white rounded-lg shadow-sm border border-amber-100 p-4 mb-4 hover:shadow-md transition-shadow">
+                    <div class="flex items-start space-x-3">
+                        <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-xl">
+                            ${show.avatar}
+                        </div>
+                        <div class="flex-1">
+                            <div class="flex items-center space-x-2 mb-1">
+                                ${liveIndicator}
+                                <span class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                                    ${show.category}
+                                </span>
+                            </div>
+                            <h3 class="font-semibold text-gray-800 mb-1">${show.title}</h3>
+                            <p class="text-sm text-gray-600 mb-2">by ${show.host}</p>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                    <span class="flex items-center space-x-1">
+                                        ${createIcon('Volume2')}
+                                        <span>${formatNumber(show.listeners)}</span>
+                                    </span>
+                                    <span>${show.duration}</span>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button onclick="handleLike(${show.id})" class="p-2 text-gray-400 hover:text-red-500 transition-colors flex items-center space-x-1">
+                                        ${createIcon('Heart')}
+                                        <span class="text-xs">${show.likes}</span>
+                                    </button>
+                                    <button class="p-2 text-gray-400 hover:text-blue-500 transition-colors flex items-center space-x-1">
+                                        ${createIcon('MessageCircle')}
+                                        <span class="text-xs">${show.comments}</span>
+                                    </button>
+                                    <button class="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                                        ${createIcon('Share2')}
+                                    </button>
+                                    <button onclick="handlePlay(${show.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-full transition-colors">
+                                        ${playButtonIcon}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createHeader() {
+            const recordingSection = AppState.isRecording ? `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <div class="flex space-x-1">
+                                <div class="w-1 h-4 bg-red-500 rounded wave-animation" style="animation-delay: 0ms"></div>
+                                <div class="w-1 h-4 bg-red-500 rounded wave-animation" style="animation-delay: 200ms"></div>
+                                <div class="w-1 h-4 bg-red-500 rounded wave-animation" style="animation-delay: 400ms"></div>
+                            </div>
+                            <span class="text-red-600 font-semibold">録音中...</span>
+                        </div>
+                        <span id="recording-time" class="text-red-600 font-mono">${formatTime(AppState.recordingTime)}</span>
+                    </div>
+                </div>
+            ` : '';
+
+            const recordButtonClass = AppState.isRecording
+                ? 'bg-red-500 text-white recording-pulse'
+                : 'bg-amber-500 hover:bg-amber-600 text-white';
+
+            return `
+                <div class="bg-white shadow-sm border-b border-amber-100 p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-2">
+                            ${createIcon('Coffee', 'text-amber-600')}
+                            <h1 class="text-2xl font-bold text-amber-800">Coffee</h1>
+                        </div>
+                        <button onclick="handleRecord()" class="p-3 rounded-full transition-all ${recordButtonClass}">
+                            ${createIcon('Mic')}
+                        </button>
+                    </div>
                     
-                    // ホストに音声通話を発信
-                    const call = peer.call(roomId, stream);
-                    handleCall(call);
-                    
-                    // データ接続も確立
-                    const conn = peer.connect(roomId);
-                    setupDataConnection(conn);
-                    
-                    currentRoom = roomId;
-                    isHost = false;
-                })
-                .catch(err => {
-                    console.error('マイクアクセスエラー:', err);
-                    alert('マイクへのアクセスが必要です');
-                });
-        });
+                    ${recordingSection}
 
-        // 通話終了
-        endCallBtn.addEventListener('click', endCall);
-
-        function endCall() {
-            if (currentCall) {
-                currentCall.close();
-                currentCall = null;
-            }
-            
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-            }
-            
-            roomConnections.forEach(conn => conn.close());
-            roomConnections.clear();
-            
-            callSection.classList.add('hidden');
-            currentRoom = null;
-            isHost = false;
-            
-            if (timerInterval) {
-                clearInterval(timerInterval);
-                timerInterval = null;
-            }
-            
-            callTimerEl.textContent = '0:00';
+                    <div class="relative">
+                        <div class="absolute left-3 top-3 text-gray-400">
+                            ${createIcon('Search')}
+                        </div>
+                        <input
+                            type="text"
+                            placeholder="番組やパーソナリティを検索"
+                            value="${AppState.searchQuery}"
+                            oninput="handleSearch(this.value)"
+                            class="w-full pl-10 pr-4 py-2 border border-amber-200 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-300"
+                        />
+                    </div>
+                </div>
+            `;
         }
 
-        // ミュート機能
-        muteBtn.addEventListener('click', function() {
-            if (localStream) {
-                const audioTrack = localStream.getAudioTracks()[0];
-                if (audioTrack) {
-                    audioTrack.enabled = !audioTrack.enabled;
-                    isMuted = !audioTrack.enabled;
-                    muteBtn.textContent = isMuted ? '🔇 ミュート解除' : '🎤 ミュート';
-                }
+        function createMainContent() {
+            if (AppState.currentTab === 'home') {
+                const categoryButtons = AppState.categories.map(category =>
+                    `<button class="flex-shrink-0 px-4 py-2 bg-white border border-amber-200 rounded-full text-sm hover:bg-amber-50 transition-colors">
+                        ${category}
+                    </button>`
+                ).join('');
+
+                const searchTitle = AppState.searchQuery
+                    ? `検索結果: "${AppState.searchQuery}"`
+                    : 'おすすめの番組';
+
+                const showCards = AppState.featuredShows.map(show => createShowCard(show)).join('');
+
+                return `
+                    <div class="p-4">
+                        <div class="flex space-x-2 mb-6 overflow-x-auto pb-2">
+                            ${categoryButtons}
+                        </div>
+                        <div class="mb-6">
+                            <h2 class="text-lg font-semibold text-gray-800 mb-4">${searchTitle}</h2>
+                            ${showCards}
+                        </div>
+                    </div>
+                `;
+            } else if (AppState.currentTab === 'create') {
+                const buttonText = AppState.isRecording ? '録音を停止' : '録音を開始';
+                const smallQrCode = AppState.xrplWalletAddress ? `
+                    <div class="absolute bottom-4 right-4 bg-white p-2 rounded-lg shadow-md z-20">
+                        <div id="small-qr-code" class="w-16 h-16 qrcode-container"></div>
+                        <p class="text-[0.6rem] text-gray-500 mt-1 text-center">XRPを送る</p>
+                    </div>
+                ` : '';
+                return `
+                    <div class="p-4 relative min-h-[calc(100vh-200px)]"> <div class="text-center py-8">
+                            <div class="w-24 h-24 bg-amber-200 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
+                                🎙️
+                            </div>
+                            <h2 class="text-xl font-semibold text-gray-800 mb-2">新しい番組を作成</h2>
+                            <p class="text-gray-600 mb-6">録音ボタンを押して配信を始めよう</p>
+                            <button onclick="handleRecord()" class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full font-semibold transition-colors">
+                                ${buttonText}
+                            </button>
+                        </div>
+                        ${smallQrCode}
+                    </div>
+                `;
+            } else if (AppState.currentTab === 'profile') {
+                return `
+                    <div class="p-4">
+                        <div class="text-center py-8">
+                            <div class="w-24 h-24 bg-amber-200 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
+                                👤
+                            </div>
+                            <h2 class="text-xl font-semibold text-gray-800 mb-2">あなたのプロフィール</h2>
+                            <p class="text-gray-600 mb-6">番組を作成してリスナーとつながろう</p>
+                            <button class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full font-semibold transition-colors mb-6">
+                                プロフィールを編集
+                            </button>
+
+                            <div class="bg-white rounded-lg shadow-sm border border-amber-100 p-4 mt-6">
+                                <h3 class="font-semibold text-gray-800 mb-2">XRP Ledger ウォレットアドレス</h3>
+                                <input
+                                    type="text"
+                                    placeholder="r..."
+                                    value="${AppState.xrplWalletAddress}"
+                                    oninput="handleWalletAddressInput(this.value)"
+                                    class="w-full px-4 py-2 border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 mb-4"
+                                />
+                                ${AppState.xrplWalletAddress ? `
+                                    <p class="text-gray-600 text-sm mb-2">XRPのギフトはここに贈ってね！</p>
+                                    <div id="profile-qr-code" class="w-full max-w-xs mx-auto aspect-square p-2 border border-amber-200 rounded-lg qrcode-container"></div>
+                                ` : '<p class="text-sm text-gray-500">ウォレットアドレスを入力するとQRコードが表示されます。</p>'}
+                            </div>
+                        </div>
+                    </div>
+                `;
             }
-        });
-
-        // チャット送信
-        sendChatBtn.addEventListener('click', sendChatMessage);
-        chatInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                sendChatMessage();
-            }
-        });
-
-        function sendChatMessage() {
-            const message = chatInput.value.trim();
-            if (!message) return;
-
-            const chatData = {
-                type: 'chat',
-                message: message,
-                sender: peer.id
-            };
-
-            // 自分のチャットを表示
-            addChatMessage(message, 'あなた');
-            
-            // 他の参加者に送信
-            roomConnections.forEach(conn => {
-                if (conn.open) {
-                    conn.send(chatData);
-                }
-            });
-
-            chatInput.value = '';
+            return '';
         }
 
-        function addChatMessage(message, sender) {
-            const messageEl = document.createElement('div');
-            messageEl.className = 'chat-message';
-            messageEl.innerHTML = `<strong>${sender}:</strong> ${message}`;
-            chatMessages.appendChild(messageEl);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
+        function createMiniPlayer() {
+            if (!AppState.currentShow) return '';
+
+            const playButtonIcon = AppState.isPlaying ? createIcon('Pause') : createIcon('Play');
+
+            return `
+                <div class="fixed bottom-20 left-4 right-4 max-w-md mx-auto bg-white rounded-lg shadow-lg border border-amber-200 p-4">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                            ${AppState.currentShow.avatar}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold text-sm text-gray-800 truncate">${AppState.currentShow.title}</p>
+                            <p class="text-xs text-gray-600 truncate">${AppState.currentShow.host}</p>
+                        </div>
+                        <button onclick="handlePlay(${AppState.currentShow.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-full transition-colors">
+                            ${playButtonIcon}
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
-        // 参加者一覧の更新
-        function updateParticipants() {
-            const participants = ['あなた'];
-            roomConnections.forEach((conn, peerId) => {
-                participants.push(peerId);
-            });
-            
-            participantsList.textContent = participants.join(', ');
+        function createBottomNavigation() {
+            const homeClass = AppState.currentTab === 'home' ? 'text-amber-600' : 'text-gray-400';
+            const createClass = AppState.currentTab === 'create' ? 'text-amber-600' : 'text-gray-400';
+            const profileClass = AppState.currentTab === 'profile' ? 'text-amber-600' : 'text-gray-400';
+
+            return `
+                <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-amber-200 px-4 py-2 z-10">
+                    <div class="flex justify-around max-w-md mx-auto">
+                        <button onclick="handleTabChange('home')" class="flex flex-col items-center py-2 px-4 ${homeClass}">
+                            ${createIcon('Home')}
+                            <span class="text-xs mt-1">ホーム</span>
+                        </button>
+                        <button onclick="handleTabChange('create')" class="flex flex-col items-center py-2 px-4 ${createClass}">
+                            ${createIcon('Plus')}
+                            <span class="text-xs mt-1">作成</span>
+                        </button>
+                        <button onclick="handleTabChange('profile')" class="flex flex-col items-center py-2 px-4 ${profileClass}">
+                            ${createIcon('User')}
+                            <span class="text-xs mt-1">プロフィール</span>
+                        </button>
+                    </div>
+                </div>
+            `;
         }
 
-        // 通話タイマー
-        function startCallTimer() {
-            callStartTime = Date.now();
-            timerInterval = setInterval(updateTimer, 1000);
+        // メインレンダリング関数
+        function render() {
+            const app = document.getElementById('app');
+            app.innerHTML = createHeader() + createMainContent() + createMiniPlayer() + createBottomNavigation();
         }
 
-        function updateTimer() {
-            if (callStartTime) {
-                const elapsed = Math.floor((Date.now() - callStartTime) / 1000);
-                const minutes = Math.floor(elapsed / 60);
-                const seconds = elapsed % 60;
-                callTimerEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-            }
-        }
-
-        // ルーム一覧更新（デモ用）
-        refreshRoomsBtn.addEventListener('click', function() {
-            const roomsContainer = document.getElementById('rooms-container');
-            roomsContainer.innerHTML = '<p>実際のアプリケーションでは、サーバーサイドの実装が必要です。<br>現在はP2P接続でルームIDを直接共有してください。</p>';
-        });
-
-        // 初期化実行
+        // 初期化
         document.addEventListener('DOMContentLoaded', function() {
-            // ボタンを初期無効化
-            createRoomBtn.disabled = true;
-            joinRoomBtn.disabled = true;
-            
-            // Peer初期化
-            initializePeer();
-        });
-
-        // ページ離脱時のクリーンアップ
-        window.addEventListener('beforeunload', function() {
-            endCall();
-            if (peer) {
-                peer.destroy();
+            render();
+            // ページロード時にプロフィールタブが選択されている場合、QRコードを生成
+            if (AppState.currentTab === 'profile' && AppState.xrplWalletAddress) {
+                setTimeout(() => generateQRCode('profile-qr-code', AppState.xrplWalletAddress, 256), 0);
+            }
+            // ページロード時に作成タブが選択されている場合、小さいQRコードを生成
+            if (AppState.currentTab === 'create' && AppState.xrplWalletAddress) {
+                setTimeout(() => generateQRCode('small-qr-code', AppState.xrplWalletAddress, 64), 0);
             }
         });
     </script>
