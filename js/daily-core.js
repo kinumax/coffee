@@ -27,6 +27,8 @@ class DailyAudioStreamer {
                 screenVideo: false
             }
         };
+        this.DAILY_API_KEY = '8aa0f24e04cfbadeeb809f11461d996fa7d2058a2f5c65298a0e8265970bbcbb';
+        this.DAILY_DOMAIN = 'koe.daily.co';
     }
 
     // Daily.co初期化
@@ -48,7 +50,7 @@ class DailyAudioStreamer {
     async createRoom(roomName, hostName) {
         try {
             // テスト用のルーム作成（実際のAPIキーが必要）
-            const roomUrl = `https://manus-test.daily.co/${roomName}`;
+            const roomUrl = `https://${this.DAILY_DOMAIN}/${roomName}`;
             
             this.roomUrl = roomUrl;
             this.roomName = roomName;
@@ -280,14 +282,14 @@ class RoomManager {
 
     // ランダムルーム名生成
     generateRoomName() {
-        const adjectives = ['cozy', 'warm', 'bright', 'calm', 'fresh'];
-        const nouns = ['coffee', 'chat', 'talk', 'voice', 'sound'];
-        const randomNum = Math.floor(Math.random() * 1000);
-        
-        const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-        const noun = nouns[Math.floor(Math.random() * nouns.length)];
-        
-        return `${adjective}-${noun}-${randomNum}`;
+        const chars = 'abcdefghijklmnopqrstuvwxyz0123456789_';
+        let result = '';
+        // Ensure the first character is a letter
+        result += chars.charAt(Math.floor(Math.random() * 26)); 
+        for (let i = 0; i < 10; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
     }
 
     // ルーム作成
