@@ -49,12 +49,32 @@
             0%, 100% { transform: scaleY(1); }
             50% { transform: scaleY(1.5); }
         }
-        /* QRコードのキャンバスが親要素のサイズに合わせるためのスタイル */
-        /* qrcode.jsがcanvasまたはtableを生成するため、両方に対応 */
-        .qrcode-container canvas,
-        .qrcode-container table {
-            width: 100% !important;
-            height: 100% !important;
+        /* QRコードのコンテナスタイル */
+        .qrcode-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            /* QRコードがSVGで生成されるため、直接SVG要素にスタイルが適用されます */
+        }
+        .qrcode-container svg {
+            display: block; /* SVGの余白をなくす */
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* QRコードのプレースホルダー用スタイル */
+        .qr-placeholder {
+            background: linear-gradient(45deg, #f3f4f6, #e5e7eb);
+            border: 2px dashed #d1d5db;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+            text-align: center;
+            font-size: 0.875rem; /* text-sm */
+            line-height: 1.25rem; /* text-sm */
+            padding: 0.5rem;
             box-sizing: border-box; /* パディングやボーダーを含めてサイズ計算 */
         }
     </style>
@@ -62,9 +82,63 @@
 <body class="bg-gradient-to-b from-amber-50 to-orange-50 min-h-screen">
     <div id="app" class="max-w-md mx-auto min-h-screen relative"></div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 
     <script>
+        // QRコード生成用のライブラリ関数 (qrcode-generatorを使用)
+        function generateQRCode(elementId, text, size) {
+            const qrCodeElement = document.getElementById(elementId);
+            if (!qrCodeElement) {
+                console.warn(`Element with ID '${elementId}' not found for QR code generation.`);
+                return;
+            }
+            
+            qrCodeElement.innerHTML = ''; // 既存のQRコードをクリア
+
+            if (text && text.trim()) {
+                try {
+                    // qrcode-generatorライブラリを使用
+                    // qrcode(typeNumber, errorCorrectionLevel)
+                    // typeNumber: QRコードのバージョン (1-40, 0で自動)
+                    // errorCorrectionLevel: 誤り訂正レベル (L, M, Q, H)
+                    const qr = qrcode(0, 'M'); // 自動バージョン選択、中程度の誤り訂正レベル
+                    qr.addData(text);
+                    qr.make();
+                    
+                    // QRコードをSVGで生成
+                    // qrcode-generatorのgetModuleCount()はモジュール（ドット）の数を返す
+                    const moduleCount = qr.getModuleCount();
+                    // 適切なcellSizeとmarginを計算して、指定されたsizeにフィットさせる
+                    // ここでは、QRコード全体のサイズをsizeに合わせるため、 cellSize を計算
+                    const cellSize = size / moduleCount; 
+                    const margin = 0; // qrcode-generatorのSVG出力ではmarginは必要ない場合が多いが、必要なら追加
+
+                    const svgSize = cellSize * moduleCount;
+                    
+                    let svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${svgSize} ${svgSize}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">`;
+                    svg += `<rect width="${svgSize}" height="${svgSize}" fill="white"/>`; // 背景を白に
+
+                    for (let row = 0; row < moduleCount; row++) {
+                        for (let col = 0; col < moduleCount; col++) {
+                            if (qr.isDark(row, col)) {
+                                const x = col * cellSize;
+                                const y = row * cellSize;
+                                svg += `<rect x="${x}" y="${y}" width="${cellSize}" height="${cellSize}" fill="black"/>`;
+                            }
+                        }
+                    }
+                    svg += '</svg>';
+                    
+                    qrCodeElement.innerHTML = svg;
+                } catch (error) {
+                    console.error('QRコード生成エラー:', error);
+                    qrCodeElement.innerHTML = `<div class="qr-placeholder" style="width: ${size}px; height: ${size}px;"><span class="text-sm">QRコード生成エラー</span></div>`;
+                }
+            } else {
+                qrCodeElement.innerHTML = `<div class="qr-placeholder" style="width: ${size}px; height: ${size}px;"><span class="text-sm">ウォレットアドレスを入力してください</span></div>`;
+            }
+        }
+
         // アプリの状態管理
         const AppState = {
             currentTab: 'home',
@@ -171,7 +245,6 @@
         function handleTabChange(tab) {
             AppState.currentTab = tab;
             render();
-            // QRコードの生成はrender関数内で実行されるため、ここでは削除
         }
 
         function handlePlay(showId) {
@@ -225,45 +298,16 @@
             }
         }
 
-        // ウォレットアドレスの入力・保存
         function handleWalletAddressInput(value) {
             AppState.xrplWalletAddress = value;
             localStorage.setItem('xrplWalletAddress', value); // ローカルストレージに保存
+            
             // アドレスが変更されたら、すぐにQRコードを更新
-            // render() が呼ばれるたびにQRコードも更新されるため、ここでは直接呼び出しは不要ですが、
-            // 入力中にもリアルタイムに更新したい場合は残しておきます。
+            // render関数もQRコードを生成しますが、入力時の即時フィードバックのためにここでも呼び出し
             if (AppState.currentTab === 'profile') {
                 generateQRCode('profile-qr-code', AppState.xrplWalletAddress, 256);
             } else if (AppState.currentTab === 'create') {
                 generateQRCode('small-qr-code', AppState.xrplWalletAddress, 64);
-            }
-        }
-
-        // QRコード生成関数
-        function generateQRCode(elementId, text, size) {
-            const qrCodeElement = document.getElementById(elementId);
-            if (qrCodeElement) {
-                qrCodeElement.innerHTML = ''; // 既存のQRコードをクリア
-
-                // QRCodeオブジェクトが利用可能か確認
-                if (typeof QRCode !== 'undefined') {
-                    if (text) {
-                        new QRCode(qrCodeElement, {
-                            text: text,
-                            width: size,
-                            height: size,
-                            colorDark : "#000000",
-                            colorLight : "#ffffff",
-                            correctLevel : QRCode.CorrectLevel.H
-                        });
-                    } else {
-                        qrCodeElement.innerHTML = '<p class="text-sm text-gray-500 text-center">ウォレットアドレスを入力してください</p>';
-                    }
-                } else {
-                    console.warn('QRCode library is not loaded or not available yet.');
-                    // フォールバックメッセージやローディング表示など
-                    qrCodeElement.innerHTML = '<p class="text-sm text-gray-500 text-center">QRコードを読み込み中...</p>';
-                }
             }
         }
 
@@ -417,7 +461,8 @@
                     </div>
                 ` : '';
                 return `
-                    <div class="p-4 relative min-h-[calc(100vh-200px)]"> <div class="text-center py-8">
+                    <div class="p-4 relative min-h-[calc(100vh-200px)]">
+                        <div class="text-center py-8">
                             <div class="w-24 h-24 bg-amber-200 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
                                 🎙️
                             </div>
@@ -439,10 +484,7 @@
                             </div>
                             <h2 class="text-xl font-semibold text-gray-800 mb-2">あなたのプロフィール</h2>
                             <p class="text-gray-600 mb-6">番組を作成してリスナーとつながろう</p>
-                            <button class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full font-semibold transition-colors mb-6" onclick="handleTabChange('edit-profile')">
-                                プロフィールを編集
-                            </button>
-
+                            
                             <div class="bg-white rounded-lg shadow-sm border border-amber-100 p-4 mt-6">
                                 <h3 class="font-semibold text-gray-800 mb-2">XRP Ledger ウォレットアドレス</h3>
                                 <input
@@ -452,36 +494,16 @@
                                     oninput="handleWalletAddressInput(this.value)"
                                     class="w-full px-4 py-2 border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-300 mb-4"
                                 />
-                                <p class="text-gray-600 text-sm mb-2">XRPのギフトはここに贈ってね！</p>
-                                <div id="profile-qr-code" class="w-full max-w-xs mx-auto aspect-square p-2 border border-amber-200 rounded-lg qrcode-container"></div>
+                                <p class="text-gray-600 text-sm mb-4">XRPのギフトはここに贈ってね！</p>
+                                <div class="w-full max-w-xs mx-auto">
+                                    <div id="profile-qr-code" class="w-full aspect-square p-2 border border-amber-200 rounded-lg qrcode-container"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 `;
             }
-            // プロフィール編集タブを追加（必要であれば）
-            else if (AppState.currentTab === 'edit-profile') {
-                return `
-                    <div class="p-4">
-                        <h2 class="text-2xl font-bold text-gray-800 mb-4">プロフィール編集</h2>
-                        <div class="mb-4">
-                            <label for="walletAddressInput" class="block text-gray-700 text-sm font-bold mb-2">XRP Ledger ウォレットアドレス</label>
-                            <input type="text" id="walletAddressInput" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="${AppState.xrplWalletAddress}" oninput="AppState.xrplWalletAddress = this.value;">
-                        </div>
-                        <button class="bg-amber-500 text-white px-4 py-2 rounded-full shadow hover:bg-amber-600 transition duration-300 mr-2" onclick="saveProfile()">保存</button>
-                        <button class="bg-gray-300 text-gray-700 px-4 py-2 rounded-full shadow hover:bg-gray-400 transition duration-300" onclick="handleTabChange('profile')">キャンセル</button>
-                    </div>
-                `;
-            }
             return '';
-        }
-
-        // プロフィール編集の保存処理（handleWalletAddressInputが入力時に更新するため、保存ボタンが不要になった場合でも残しておきます）
-        function saveProfile() {
-            // handleWalletAddressInputでAppStateが直接更新されるため、ここでは特別な処理は不要
-            localStorage.setItem('xrplWalletAddress', AppState.xrplWalletAddress);
-            alert('ウォレットアドレスを保存しました！');
-            handleTabChange('profile'); // プロフィールタブに戻る
         }
 
         function createMiniPlayer() {
@@ -510,7 +532,7 @@
         function createBottomNavigation() {
             const homeClass = AppState.currentTab === 'home' ? 'text-amber-600' : 'text-gray-400';
             const createClass = AppState.currentTab === 'create' ? 'text-amber-600' : 'text-gray-400';
-            const profileClass = (AppState.currentTab === 'profile' || AppState.currentTab === 'edit-profile') ? 'text-amber-600' : 'text-gray-400';
+            const profileClass = AppState.currentTab === 'profile' ? 'text-amber-600' : 'text-gray-400';
 
             return `
                 <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-amber-200 px-4 py-2 z-10">
@@ -537,15 +559,17 @@
             const app = document.getElementById('app');
             app.innerHTML = createHeader() + createMainContent() + createMiniPlayer() + createBottomNavigation();
 
-            // DOMが更新された後に、次のイベントループでQRコードを生成する
-            // これにより、QRCodeライブラリが完全に読み込まれ、利用可能であることを保証します。
+            // DOMが更新された後に、QRコードを生成する
+            // setTimeoutを使用することで、DOM要素が確実にレンダリングされた後に処理を実行
             setTimeout(() => {
                 if (AppState.currentTab === 'profile') {
+                    // ProfileタブのQRコード
                     generateQRCode('profile-qr-code', AppState.xrplWalletAddress, 256);
                 } else if (AppState.currentTab === 'create') {
+                    // Createタブの小さなQRコード
                     generateQRCode('small-qr-code', AppState.xrplWalletAddress, 64);
                 }
-            }, 0); // 0ms の setTimeout で次のイベントループまで遅延
+            }, 50); // 短い遅延を追加
         }
 
         // 初期化
