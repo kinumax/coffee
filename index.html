@@ -230,6 +230,8 @@
             AppState.xrplWalletAddress = value;
             localStorage.setItem('xrplWalletAddress', value); // ローカルストレージに保存
             // アドレスが変更されたら、すぐにQRコードを更新
+            // render() が呼ばれるたびにQRコードも更新されるため、ここでは直接呼び出しは不要ですが、
+            // 入力中にもリアルタイムに更新したい場合は残しておきます。
             if (AppState.currentTab === 'profile') {
                 generateQRCode('profile-qr-code', AppState.xrplWalletAddress, 256);
             } else if (AppState.currentTab === 'create') {
@@ -243,17 +245,24 @@
             if (qrCodeElement) {
                 qrCodeElement.innerHTML = ''; // 既存のQRコードをクリア
 
-                if (text) {
-                    new QRCode(qrCodeElement, {
-                        text: text,
-                        width: size,
-                        height: size,
-                        colorDark : "#000000",
-                        colorLight : "#ffffff",
-                        correctLevel : QRCode.CorrectLevel.H
-                    });
+                // QRCodeオブジェクトが利用可能か確認
+                if (typeof QRCode !== 'undefined') {
+                    if (text) {
+                        new QRCode(qrCodeElement, {
+                            text: text,
+                            width: size,
+                            height: size,
+                            colorDark : "#000000",
+                            colorLight : "#ffffff",
+                            correctLevel : QRCode.CorrectLevel.H
+                        });
+                    } else {
+                        qrCodeElement.innerHTML = '<p class="text-sm text-gray-500 text-center">ウォレットアドレスを入力してください</p>';
+                    }
                 } else {
-                    qrCodeElement.innerHTML = '<p class="text-sm text-gray-500 text-center">ウォレットアドレスを入力してください</p>';
+                    console.warn('QRCode library is not loaded or not available yet.');
+                    // フォールバックメッセージやローディング表示など
+                    qrCodeElement.innerHTML = '<p class="text-sm text-gray-500 text-center">QRコードを読み込み中...</p>';
                 }
             }
         }
@@ -528,18 +537,20 @@
             const app = document.getElementById('app');
             app.innerHTML = createHeader() + createMainContent() + createMiniPlayer() + createBottomNavigation();
 
-            // DOMが更新された後にQRコードを生成する
-            if (AppState.currentTab === 'profile') {
-                generateQRCode('profile-qr-code', AppState.xrplWalletAddress, 256);
-            } else if (AppState.currentTab === 'create') {
-                generateQRCode('small-qr-code', AppState.xrplWalletAddress, 64);
-            }
+            // DOMが更新された後に、次のイベントループでQRコードを生成する
+            // これにより、QRCodeライブラリが完全に読み込まれ、利用可能であることを保証します。
+            setTimeout(() => {
+                if (AppState.currentTab === 'profile') {
+                    generateQRCode('profile-qr-code', AppState.xrplWalletAddress, 256);
+                } else if (AppState.currentTab === 'create') {
+                    generateQRCode('small-qr-code', AppState.xrplWalletAddress, 64);
+                }
+            }, 0); // 0ms の setTimeout で次のイベントループまで遅延
         }
 
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
             render();
-            // ページロード時にQRコード生成はrender関数内で実行されるため、ここでは削除
         });
     </script>
 </body>
