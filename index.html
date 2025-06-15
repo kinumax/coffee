@@ -11,7 +11,7 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
     
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
+    
     <script>
         tailwind.config = {
             theme: {
@@ -58,6 +58,8 @@
 </head>
 <body class="bg-gradient-to-b from-amber-50 to-orange-50 min-h-screen">
     <div id="app" class="max-w-md mx-auto min-h-screen relative"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode.js/1.0.0/qrcode.min.js"></script>
 
     <script>
         // アプリの状態管理
@@ -231,6 +233,10 @@
         function handleWalletAddressInput(value) {
             AppState.xrplWalletAddress = value;
             localStorage.setItem('xrplWalletAddress', value); // ローカルストレージに保存
+            // アドレスが変更されたら、すぐにQRコードを更新
+            if (AppState.currentTab === 'profile') {
+                generateQRCode('profile-qr-code', AppState.xrplWalletAddress, 256);
+            }
         }
 
         // QRコード生成関数
@@ -501,11 +507,12 @@
             const app = document.getElementById('app');
             app.innerHTML = createHeader() + createMainContent() + createMiniPlayer() + createBottomNavigation();
         }
-
+        
         // 初期化
         document.addEventListener('DOMContentLoaded', function() {
             render();
             // ページロード時にプロフィールタブが選択されている場合、QRコードを生成
+            // DOMが完全に更新された後に実行されるようにsetTimeoutを維持
             if (AppState.currentTab === 'profile' && AppState.xrplWalletAddress) {
                 setTimeout(() => generateQRCode('profile-qr-code', AppState.xrplWalletAddress, 256), 0);
             }
