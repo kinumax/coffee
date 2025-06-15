@@ -50,7 +50,7 @@
         }
     </style>
 </head>
-<body class="bg-gradient-to-b from-amber-50 to-orange-50 min-h-screen">
+<body class="min-h-screen transition-colors duration-300">
     <div id="app" class="max-w-md mx-auto min-h-screen relative"></div>
 
     <script>
@@ -113,6 +113,30 @@
                     avatar: "🎷",
                     likes: 334,
                     comments: 12
+                },
+                {
+                    id: 5,
+                    title: "おやすみ前のひととき",
+                    host: "小林ひかる",
+                    listeners: 432,
+                    duration: "10:05",
+                    category: "トーク",
+                    isLive: true,
+                    avatar: "🌙",
+                    likes: 102,
+                    comments: 45
+                },
+                {
+                    id: 6,
+                    title: "英語で学ぼう",
+                    host: "中村エリカ",
+                    listeners: 321,
+                    duration: "20:11",
+                    category: "学習",
+                    isLive: false,
+                    avatar: "📘",
+                    likes: 89,
+                    comments: 18
                 }
             ],
             
@@ -155,6 +179,15 @@
                 return icon.replace('class="', `class="${className} `);
             }
             return icon;
+        }
+
+        function updateBodyClass() {
+            const body = document.body;
+            if (AppState.isDarkMode) {
+                body.className = 'bg-gradient-to-b from-coffee-900 to-coffee-700 text-coffee-50 min-h-screen transition-colors duration-300';
+            } else {
+                body.className = 'bg-gradient-to-b from-amber-50 to-orange-50 min-h-screen transition-colors duration-300';
+            }
         }
 
         // イベントハンドラー
@@ -209,6 +242,7 @@
 
         function handleDarkModeToggle() {
             AppState.isDarkMode = !AppState.isDarkMode;
+            updateBodyClass();
             render();
         }
 
@@ -238,29 +272,30 @@
                 ? createIcon('Pause')
                 : createIcon('Play');
 
-            const cardBg = AppState.isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-amber-100';
-            const titleColor = AppState.isDarkMode ? 'text-gray-100' : 'text-gray-800';
-            const hostColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
-            const statsColor = AppState.isDarkMode ? 'text-gray-400' : 'text-gray-500';
-            const avatarBg = AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-100';
+            const cardBg = AppState.isDarkMode ? 'bg-coffee-800 border-coffee-600' : 'bg-white border-amber-100';
+            const titleColor = AppState.isDarkMode ? 'text-coffee-50' : 'text-gray-800';
+            const hostColor = AppState.isDarkMode ? 'text-coffee-200' : 'text-gray-600';
+            const statsColor = AppState.isDarkMode ? 'text-coffee-300' : 'text-gray-500';
+            const avatarBg = AppState.isDarkMode ? 'bg-coffee-700' : 'bg-amber-100';
+            const categoryBg = AppState.isDarkMode ? 'bg-coffee-600 text-coffee-100' : 'bg-amber-50 text-amber-600';
 
             return `
-                <div class="${cardBg} rounded-lg shadow-sm border p-3 mb-3 hover:shadow-md transition-shadow">
-                    <div class="flex items-start space-x-3">
-                        <div class="w-10 h-10 ${avatarBg} rounded-full flex items-center justify-center text-lg">
+                <div class="${cardBg} rounded-lg shadow-sm border px-3 py-2 mb-2 hover:shadow-md transition-shadow">
+                    <div class="flex items-start space-x-2">
+                        <div class="w-8 h-8 ${avatarBg} rounded-full flex items-center justify-center text-sm">
                             ${show.avatar}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <div class="flex items-center space-x-2 mb-1">
+                            <div class="flex items-center space-x-1 mb-1">
                                 ${liveIndicator}
-                                <span class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
+                                <span class="text-xs ${categoryBg} px-2 py-0.5 rounded-full">
                                     ${show.category}
                                 </span>
                             </div>
-                            <h3 class="font-medium ${titleColor} mb-0.5 text-sm leading-tight">${show.title}</h3>
-                            <p class="text-xs ${hostColor} mb-2">by ${show.host}</p>
+                            <h3 class="font-medium ${titleColor} mb-0.5 text-xs leading-tight">${show.title}</h3>
+                            <p class="text-xs ${hostColor} mb-1">by ${show.host}</p>
                             <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-3 text-xs ${statsColor}">
+                                <div class="flex items-center space-x-2 text-xs ${statsColor}">
                                     <span class="flex items-center space-x-1">
                                         ${createIcon('Volume2')}
                                         <span>${formatNumber(show.listeners)}</span>
@@ -268,18 +303,11 @@
                                     <span>${show.duration}</span>
                                 </div>
                                 <div class="flex items-center space-x-1">
-                                    <button onclick="handleLike(${show.id})" class="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex items-center space-x-1">
+                                    <button onclick="handleLike(${show.id})" class="p-1 text-gray-400 hover:text-red-500 transition-colors flex items-center space-x-1">
                                         ${createIcon('Heart')}
                                         <span class="text-xs">${show.likes}</span>
                                     </button>
-                                    <button class="p-1.5 text-gray-400 hover:text-blue-500 transition-colors flex items-center space-x-1">
-                                        ${createIcon('MessageCircle')}
-                                        <span class="text-xs">${show.comments}</span>
-                                    </button>
-                                    <button class="p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
-                                        ${createIcon('Share2')}
-                                    </button>
-                                    <button onclick="handlePlay(${show.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-full transition-colors">
+                                    <button onclick="handlePlay(${show.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-1 rounded-full transition-colors">
                                         ${playButtonIcon}
                                     </button>
                                 </div>
@@ -311,11 +339,11 @@
                 ? 'bg-red-500 text-white recording-pulse'
                 : 'bg-amber-500 hover:bg-amber-600 text-white';
 
-            const headerBg = AppState.isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-amber-100';
+            const headerBg = AppState.isDarkMode ? 'bg-coffee-900 border-coffee-700' : 'bg-white border-amber-100';
             const titleColor = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-800';
             const iconColor = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600';
-            const inputBg = AppState.isDarkMode ? 'bg-gray-800 border-gray-600 text-gray-100 placeholder-gray-400' : 'border-amber-200';
-            const searchIconColor = AppState.isDarkMode ? 'text-gray-400' : 'text-gray-400';
+            const inputBg = AppState.isDarkMode ? 'bg-coffee-800 border-coffee-600 text-coffee-50 placeholder-coffee-300' : 'border-amber-200';
+            const searchIconColor = AppState.isDarkMode ? 'text-coffee-400' : 'text-gray-400';
 
             return `
                 <div class="${headerBg} shadow-sm border-b p-4">
@@ -325,7 +353,7 @@
                             <h1 class="text-2xl font-bold ${titleColor}">Coffee</h1>
                         </div>
                         <div class="flex items-center space-x-2">
-                            <button onclick="handleDarkModeToggle()" class="p-2 rounded-full ${AppState.isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800'} transition-colors">
+                            <button onclick="handleDarkModeToggle()" class="p-2 rounded-full ${AppState.isDarkMode ? 'text-coffee-300 hover:text-coffee-100' : 'text-gray-600 hover:text-gray-800'} transition-colors">
                                 ${AppState.isDarkMode ? createIcon('Sun') : createIcon('Moon')}
                             </button>
                             <button onclick="handleRecord()" class="p-3 rounded-full transition-all ${recordButtonClass}">
@@ -353,13 +381,12 @@
         }
 
         function createMainContent() {
-            const contentBg = AppState.isDarkMode ? '' : '';
-            const titleColor = AppState.isDarkMode ? 'text-gray-100' : 'text-gray-800';
+            const titleColor = AppState.isDarkMode ? 'text-coffee-100' : 'text-gray-800';
             
             if (AppState.currentTab === 'home') {
                 const categoryButtons = AppState.categories.map(category => {
                     const buttonStyle = AppState.isDarkMode 
-                        ? 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600' 
+                        ? 'bg-coffee-700 border-coffee-600 text-coffee-200 hover:bg-coffee-600' 
                         : 'bg-white border-amber-200 hover:bg-amber-50';
                     return `<button class="flex-shrink-0 px-4 py-2 border rounded-full text-sm transition-colors ${buttonStyle}">
                         ${category}
@@ -373,23 +400,25 @@
                 const showCards = AppState.featuredShows.map(show => createShowCard(show)).join('');
 
                 return `
-                    <div class="p-4 ${contentBg}">
+                    <div class="p-4">
                         <div class="flex space-x-2 mb-4 overflow-x-auto pb-2">
                             ${categoryButtons}
                         </div>
                         <div class="mb-6">
                             <h2 class="text-lg font-semibold ${titleColor} mb-3">${searchTitle}</h2>
-                            ${showCards}
+                            <div class="grid grid-cols-2 gap-2">
+                                ${showCards}
+                            </div>
                         </div>
                     </div>
                 `;
             } else if (AppState.currentTab === 'create') {
                 const buttonText = AppState.isRecording ? '録音を停止' : '録音を開始';
-                const iconBg = AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-200';
-                const descColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+                const iconBg = AppState.isDarkMode ? 'bg-coffee-700' : 'bg-amber-200';
+                const descColor = AppState.isDarkMode ? 'text-coffee-300' : 'text-gray-600';
                 
                 return `
-                    <div class="p-4 ${contentBg}">
+                    <div class="p-4">
                         <div class="text-center py-8">
                             <div class="w-24 h-24 ${iconBg} rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
                                 🎙️
@@ -403,11 +432,11 @@
                     </div>
                 `;
             } else if (AppState.currentTab === 'profile') {
-                const iconBg = AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-200';
-                const descColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+                const iconBg = AppState.isDarkMode ? 'bg-coffee-700' : 'bg-amber-200';
+                const descColor = AppState.isDarkMode ? 'text-coffee-300' : 'text-gray-600';
                 
                 return `
-                    <div class="p-4 ${contentBg}">
+                    <div class="p-4">
                         <div class="text-center py-8">
                             <div class="w-24 h-24 ${iconBg} rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
                                 👤
@@ -428,10 +457,10 @@
             if (!AppState.currentShow) return '';
 
             const playButtonIcon = AppState.isPlaying ? createIcon('Pause') : createIcon('Play');
-            const playerBg = AppState.isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-amber-200';
-            const titleColor = AppState.isDarkMode ? 'text-gray-100' : 'text-gray-800';
-            const hostColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
-            const avatarBg = AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-100';
+            const playerBg = AppState.isDarkMode ? 'bg-coffee-800 border-coffee-600' : 'bg-white border-amber-200';
+            const titleColor = AppState.isDarkMode ? 'text-coffee-100' : 'text-gray-800';
+            const hostColor = AppState.isDarkMode ? 'text-coffee-300' : 'text-gray-600';
+            const avatarBg = AppState.isDarkMode ? 'bg-coffee-700' : 'bg-amber-100';
 
             return `
                 <div class="fixed bottom-20 left-4 right-4 max-w-md mx-auto ${playerBg} rounded-lg shadow-lg border p-4">
@@ -452,38 +481,58 @@
         }
 
         function createBottomNavigation() {
-            const homeClass = AppState.currentTab === 'home' ? 'text-amber-600' : 'text-gray-400';
-            const createClass = AppState.currentTab === 'create' ? 'text-amber-600' : 'text-gray-400';
-            const profileClass = AppState.currentTab === 'profile' ? 'text-amber-600' : 'text-gray-400';
+            const homeClass = AppState.currentTab === 'home'
+                ? (AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600')
+                : (AppState.isDarkMode ? 'text-coffee-300 hover:text-coffee-100' : 'text-gray-500 hover:text-gray-700');
+            const createClass = AppState.currentTab === 'create'
+                ? (AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600')
+                : (AppState.isDarkMode ? 'text-coffee-300 hover:text-coffee-100' : 'text-gray-500 hover:text-gray-700');
+            const profileClass = AppState.currentTab === 'profile'
+                ? (AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600')
+                : (AppState.isDarkMode ? 'text-coffee-300 hover:text-coffee-100' : 'text-gray-500 hover:text-gray-700');
+
+            const navBg = AppState.isDarkMode ? 'bg-coffee-900 border-coffee-700' : 'bg-white border-amber-100';
 
             return `
-                <div class="fixed bottom-0 left-0 right-0 bg-white border-t border-amber-200 px-4 py-2 z-10">
-                    <div class="flex justify-around max-w-md mx-auto">
-                        <button onclick="handleTabChange('home')" class="flex flex-col items-center py-2 px-4 ${homeClass}">
+                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto ${navBg} border-t shadow-lg z-10">
+                    <div class="flex justify-around items-center h-16">
+                        <button onclick="handleTabChange('home')" class="flex flex-col items-center justify-center text-sm font-medium ${homeClass} transition-colors">
                             ${createIcon('Home')}
-                            <span class="text-xs mt-1">ホーム</span>
+                            <span>ホーム</span>
                         </button>
-                        <button onclick="handleTabChange('create')" class="flex flex-col items-center py-2 px-4 ${createClass}">
+                        <button onclick="handleTabChange('create')" class="flex flex-col items-center justify-center text-sm font-medium ${createClass} transition-colors">
                             ${createIcon('Plus')}
-                            <span class="text-xs mt-1">作成</span>
+                            <span>作成</span>
                         </button>
-                        <button onclick="handleTabChange('profile')" class="flex flex-col items-center py-2 px-4 ${profileClass}">
+                        <button onclick="handleTabChange('profile')" class="flex flex-col items-center justify-center text-sm font-medium ${profileClass} transition-colors">
                             ${createIcon('User')}
-                            <span class="text-xs mt-1">プロフィール</span>
+                            <span>プロフィール</span>
                         </button>
                     </div>
                 </div>
             `;
         }
 
-        // メインレンダリング関数
+        // 全体のレンダリング関数
         function render() {
             const app = document.getElementById('app');
-            app.innerHTML = createHeader() + createMainContent() + createMiniPlayer() + createBottomNavigation();
+            if (app) {
+                app.innerHTML = `
+                    <div class="flex flex-col min-h-screen">
+                        ${createHeader()}
+                        <main class="flex-1 overflow-y-auto pb-24">
+                            ${createMainContent()}
+                        </main>
+                        ${createMiniPlayer()}
+                        ${createBottomNavigation()}
+                    </div>
+                `;
+            }
         }
 
-        // 初期化
-        document.addEventListener('DOMContentLoaded', function() {
+        // 初期レンダリングとボディクラスの設定
+        document.addEventListener('DOMContentLoaded', () => {
+            updateBodyClass();
             render();
         });
     </script>
