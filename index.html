@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PeerJS WebRTC App</title>
-    <meta name="description" content="PeerJS WebRTC Minimal App with integrated features.">
+    <title>PeerJS WebRTC Room App</title>
+    <meta name="description" content="PeerJS WebRTC App with room management.">
 
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📞</text></svg>">
 
@@ -12,7 +12,6 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
     <style>
-        /* カスタムCSSは最小限に */
         body {
             font-family: sans-serif;
             transition: background-color 0.3s ease, color 0.3s ease;
@@ -25,7 +24,7 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
         #localAudio, #remoteAudio {
-            display: none; /* Audio elements are typically hidden */
+            display: none;
         }
         .peer-id-box {
             font-family: 'Courier New', monospace;
@@ -48,7 +47,7 @@
     <div id="app" class="container bg-white">
         <h1 class="text-3xl font-bold text-center text-blue-700 mb-6 flex items-center justify-center space-x-2">
             <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            PeerJS 音声通話アプリ
+            PeerJS 音声通話ルームアプリ
         </h1>
 
         <div id="connectionStatus" class="connection-status-message p-3 mb-4 rounded-lg text-sm flex items-center space-x-2">
@@ -57,7 +56,7 @@
         </div>
 
         <div class="space-y-6">
-            <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg shadow-sm text-center">
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded-lg shadow-sm text-center hidden">
                 <p class="text-blue-700 text-sm mb-2">あなたのPeer ID:</p>
                 <div class="flex items-center justify-center space-x-2">
                     <span id="myPeerId" class="peer-id-box bg-blue-100 text-blue-800 px-4 py-2 rounded-md text-lg font-semibold select-all" onclick="copyToClipboard(this.textContent)">ID生成中...</span>
@@ -65,22 +64,29 @@
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                     </button>
                 </div>
-                <p class="text-gray-600 text-xs mt-2">このIDを相手に伝えてください。</p>
+                <p class="text-gray-600 text-xs mt-2">このIDは開発用です。</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button id="hostButton" class="bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-green-500 transition-all flex items-center justify-center space-x-2 text-lg">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
-                    <span>ホストになる</span>
-                </button>
-
-                <div class="flex flex-col space-y-2">
-                    <input type="text" id="targetPeerIdInput" placeholder="相手のPeer IDを入力" class="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-base">
-                    <button id="connectButton" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all flex items-center justify-center space-x-2 text-lg">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
-                        <span>相手に接続する</span>
+            <div id="roomCreationSection" class="bg-indigo-50 border border-indigo-200 p-4 rounded-lg shadow-sm">
+                <h2 class="text-xl font-bold text-indigo-700 mb-4 text-center">新しいルームを作成</h2>
+                <div class="flex flex-col space-y-3">
+                    <input type="text" id="roomNameInput" placeholder="ルーム名を入力 (例: 雑談ルーム)" class="p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base">
+                    <button id="createRoomButton" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow-md focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors flex items-center justify-center space-x-2 text-lg">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        <span>ルームを作成してホストになる</span>
                     </button>
                 </div>
+            </div>
+
+            <div id="roomListSection" class="bg-white border border-gray-200 p-4 rounded-lg shadow-sm">
+                <h2 class="text-xl font-bold text-gray-800 mb-4 text-center">参加可能なルーム</h2>
+                <div id="roomsContainer" class="min-h-[100px] max-h-60 overflow-y-auto border border-gray-300 p-3 rounded-lg bg-gray-50 space-y-2">
+                    <p class="text-gray-600 text-center">ルームを読み込み中...</p>
+                    </div>
+                <button id="refreshRoomsButton" class="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-400 transition-colors w-full">
+                    <svg class="inline-block w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004 12V8m5.414-1.586a1 1 0 010-1.414l-2-2a1 1 0 01-1.414 0L4 4m7 7l-2-2m2 2l-2 2"/></svg>
+                    <span>ルーム一覧を更新</span>
+                </button>
             </div>
 
             <div id="callControls" class="bg-gray-50 border border-gray-200 p-4 rounded-lg shadow-sm text-center hidden">
@@ -115,79 +121,87 @@
     <script>
         // DOM要素の取得
         const myPeerIdEl = document.getElementById('myPeerId');
-        const copyIdButton = document.getElementById('copyIdButton');
-        const targetPeerIdInput = document.getElementById('targetPeerIdInput');
-        const hostButton = document.getElementById('hostButton');
-        const connectButton = document.getElementById('connectButton');
+        const copyIdButton = document.getElementById('copyIdButton'); // デバッグ用
+        const roomNameInput = document.getElementById('roomNameInput');
+        const createRoomButton = document.getElementById('createRoomButton');
+        const roomsContainer = document.getElementById('roomsContainer');
+        const refreshRoomsButton = document.getElementById('refreshRoomsButton');
+        const callControls = document.getElementById('callControls');
         const endCallButton = document.getElementById('endCallButton');
         const localAudio = document.getElementById('localAudio');
         const remoteAudio = document.getElementById('remoteAudio');
         const messageInput = document.getElementById('messageInput');
         const sendMessageButton = document.getElementById('sendMessageButton');
         const messagesDiv = document.getElementById('messages');
-        const callControls = document.getElementById('callControls');
         const recordingTimeEl = document.getElementById('recordingTime');
         const recordingPulseEl = document.getElementById('recordingPulse');
         const connectionStatusDiv = document.getElementById('connectionStatus');
         const statusIcon = document.getElementById('statusIcon');
         const statusText = document.getElementById('statusText');
         const callStatusText = document.getElementById('callStatusText');
+        const roomCreationSection = document.getElementById('roomCreationSection');
+        const roomListSection = document.getElementById('roomListSection');
+
 
         // アプリケーションの状態
         const AppState = {
             peer: null,
             myPeerId: '',
             remotePeerId: '',
-            isConnected: false,
-            isHost: false,
-            isGuest: false,
+            currentRoomId: null, // 現在参加しているルームのID
+            isHost: false, // ホストとしてルームを作成したか
+            isConnected: false, // P2P接続が確立されたか
             audioStream: null,
             currentCall: null,
-            dataConnection: null, // PeerJS DataConnection用
+            dataConnection: null,
             recordingTime: 0,
             recordingTimer: null,
-            // disconnected, connecting, connected, error
-            connectionStatus: 'disconnected'
-        };
-
-        // PeerJSサーバーの設定
-        const PEER_SERVER_CONFIG = {
-            host: 'localhost',
-            port: 9000,
-            path: '/myapp',
-            config: {
-                'iceServers': [
-                    { 'urls': 'stun:stun.l.google.com:19302' } // NAT越えのためのSTUNサーバー
-                ]
+            connectionStatus: 'disconnected', // disconnected, connecting, connected, error
+            apiBaseUrl: 'http://localhost:3000/api', // ★ルーム管理APIサーバーのURLを設定
+            peerServerConfig: {
+                host: 'localhost',
+                port: 9000,
+                path: '/myapp',
+                config: {
+                    'iceServers': [
+                        { 'urls': 'stun:stun.l.google.com:19302' }
+                    ]
+                }
             }
         };
 
         // UI更新関数
         function updateUI() {
-            myPeerIdEl.textContent = AppState.myPeerId || 'ID生成中...';
-            targetPeerIdInput.value = AppState.remotePeerId;
+            myPeerIdEl.textContent = AppState.myPeerId || 'ID生成中...'; // デバッグ用
 
-            hostButton.disabled = AppState.isConnected || AppState.connectionStatus === 'connecting';
-            targetPeerIdInput.disabled = AppState.isConnected || AppState.connectionStatus === 'connecting';
-            connectButton.disabled = AppState.isConnected || AppState.connectionStatus === 'connecting';
+            createRoomButton.disabled = AppState.isConnected || AppState.connectionStatus === 'connecting';
+            roomNameInput.disabled = AppState.isConnected || AppState.connectionStatus === 'connecting';
+            
             sendMessageButton.disabled = !AppState.isConnected || !AppState.dataConnection || !AppState.dataConnection.open;
             messageInput.disabled = !AppState.isConnected || !AppState.dataConnection || !AppState.dataConnection.open;
-
-            if (AppState.isConnected) {
+            
+            // ルーム作成・一覧表示エリアの表示制御
+            if (AppState.isConnected) { // 通話中は隠す
+                roomCreationSection.classList.add('hidden');
+                roomListSection.classList.add('hidden');
                 callControls.classList.remove('hidden');
-                hostButton.classList.add('hidden');
-                document.querySelector('.grid.grid-cols-1.md\\:grid-cols-2').classList.add('hidden'); // ホスト/ゲスト選択を隠す
+            } else { // 通話中でなければ表示
+                roomCreationSection.classList.remove('hidden');
+                roomListSection.classList.remove('hidden');
+                callControls.classList.add('hidden');
+            }
+
+
+            // 通話ステータス表示
+            if (AppState.isConnected) {
                 if (AppState.isHost) {
                     callStatusText.textContent = `ホストとして '${AppState.remotePeerId}' と通話中`;
                     recordingPulseEl.classList.remove('hidden');
-                } else if (AppState.isGuest) {
+                } else {
                     callStatusText.textContent = `'${AppState.remotePeerId}' と通話中`;
-                    recordingPulseEl.classList.add('hidden'); // ゲストは録画パルスを表示しない
+                    recordingPulseEl.classList.add('hidden');
                 }
             } else {
-                callControls.classList.add('hidden');
-                hostButton.classList.remove('hidden');
-                document.querySelector('.grid.grid-cols-1.md\\:grid-cols-2').classList.remove('hidden');
                 recordingPulseEl.classList.add('hidden');
             }
 
@@ -222,7 +236,7 @@
             const p = document.createElement('p');
             p.textContent = `${sender}: ${text}`;
             messagesDiv.appendChild(p);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight; // スクロールを一番下へ
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
         // 時間フォーマット
@@ -241,7 +255,7 @@
 
             setTimeout(() => {
                 toast.style.opacity = '1';
-            }, 10); // 短い遅延でトランジションを有効化
+            }, 10);
 
             setTimeout(() => {
                 toast.style.opacity = '0';
@@ -249,17 +263,28 @@
             }, 2000);
         }
 
+        // クリップボードにコピー
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('IDがクリップボードにコピーされました！');
+            }).catch(err => {
+                console.error('コピー失敗:', err);
+                showToast('IDのコピーに失敗しました。');
+            });
+        }
+
+
         // PeerJS初期化
         function initializePeer(id = null) {
             if (AppState.peer) {
                 AppState.peer.destroy();
                 AppState.peer = null;
             }
-            AppState.peer = new Peer(id, PEER_SERVER_CONFIG);
+            AppState.peer = new Peer(id, AppState.peerServerConfig);
 
             AppState.peer.on('open', (newId) => {
                 AppState.myPeerId = newId;
-                AppState.connectionStatus = 'disconnected'; // PeerJSサーバーへの接続は完了したが、P2P接続は未確立
+                AppState.connectionStatus = 'disconnected';
                 console.log('Peer ID:', newId);
                 updateUI();
             });
@@ -273,7 +298,6 @@
                 } else if (err.type === 'network') {
                     appendMessage('ネットワーク接続の問題です。インターネット接続またはサーバーを確認してください。');
                 } else if (err.type === 'disconnected') {
-                     // サーバーから切断された場合は、再接続を促す
                     appendMessage('PeerJSサーバーから切断されました。');
                 }
                 updateUI();
@@ -289,7 +313,6 @@
                 console.log('PeerJSサーバーから切断されました。');
                 AppState.connectionStatus = 'disconnected';
                 updateUI();
-                // 必要であればここで自動再接続ロジックを実装
             });
 
             // ゲストからのデータ接続があった時 (ホスト側が受信)
@@ -311,8 +334,8 @@
                 appendMessage(`'${call.peer}' からメディア接続要求。`);
 
                 if (AppState.audioStream) {
-                    call.answer(AppState.audioStream); // 自分のストリームを送信して応答
-                    AppState.currentCall = call; // 現在の通話を保持
+                    call.answer(AppState.audioStream);
+                    AppState.currentCall = call;
                     AppState.remotePeerId = call.peer;
                     setupMediaCallEvents(call);
                     AppState.isConnected = true;
@@ -329,7 +352,6 @@
 
         // データ接続イベントのセットアップ
         function setupDataConnectionEvents(conn) {
-            // 既存のデータ接続があればクローズ
             if (AppState.dataConnection) {
                 AppState.dataConnection.close();
             }
@@ -337,7 +359,6 @@
 
             conn.on('open', () => {
                 console.log(`'${conn.peer}' とのデータ接続が確立されました。`);
-                // データ接続確立後、UIを更新
                 updateUI();
             });
 
@@ -349,9 +370,8 @@
             conn.on('close', () => {
                 console.log(`'${conn.peer}' とのデータ接続が閉じられました。`);
                 AppState.dataConnection = null;
-                // データ接続が閉じられても、メディア接続が続いている場合がある
                 if (!AppState.currentCall || AppState.currentCall.open === false) {
-                     endCall(); // 両方閉じていれば完全終了
+                     endCall();
                 }
                 updateUI();
             });
@@ -366,16 +386,15 @@
         function setupMediaCallEvents(call) {
             call.on('stream', (remoteStream) => {
                 console.log('相手のメディアストリームを受信。');
-                remoteAudio.srcObject = remoteStream; // 相手のストリームを再生
+                remoteAudio.srcObject = remoteStream;
                 remoteAudio.play().catch(e => console.warn("Remote audio playback failed:", e));
             });
 
             call.on('close', () => {
                 console.log('メディア接続が閉じられました。');
                 remoteAudio.srcObject = null;
-                // メディア接続が閉じられても、データ接続が続いている場合がある
                 if (!AppState.dataConnection || AppState.dataConnection.open === false) {
-                    endCall(); // 両方閉じていれば完全終了
+                    endCall();
                 }
                 updateUI();
             });
@@ -386,57 +405,16 @@
             });
         }
 
-        // ホストになる
-        async function startHosting() {
-            try {
-                AppState.connectionStatus = 'connecting';
-                updateUI();
-                appendMessage('マイクへのアクセスを要求しています...');
-
-                AppState.audioStream = await navigator.mediaDevices.getUserMedia({
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true,
-                        sampleRate: 44100
-                    }
-                });
-
-                localAudio.srcObject = AppState.audioStream; // 自分の音声をモニター（muted）
-                localAudio.play().catch(e => console.warn("Local audio playback failed:", e));
-
-                initializePeer(); // IDを自動生成させる
-
-                AppState.peer.on('open', (id) => {
-                    AppState.isHost = true;
-                    AppState.isConnected = false; // まだゲストとは繋がっていない
-                    AppState.remotePeerId = '';
-                    AppState.connectionStatus = 'connected'; // PeerJSサーバーに接続済み
-                    appendMessage(`ホストとして待機中。あなたのID: ${id}`);
-                    startRecordingTimer();
-                    updateUI();
-                });
-
-            } catch (error) {
-                console.error('ホスト開始エラー:', error);
-                AppState.connectionStatus = 'error';
-                appendMessage(`ホスト開始エラー: マイクへのアクセスを許可してください (${error.message})`, 'エラー');
-                updateUI();
-            }
-        }
-
-        // 相手に接続する
-        async function connectToHost() {
-            const targetPeerId = targetPeerIdInput.value.trim();
-            if (!targetPeerId) {
-                showToast('相手のPeer IDを入力してください！');
+        // ルームを作成してホストになる
+        async function createRoomAndHost() {
+            const roomName = roomNameInput.value.trim();
+            if (!roomName) {
+                showToast('ルーム名を入力してください！');
                 return;
             }
 
             AppState.connectionStatus = 'connecting';
-            AppState.remotePeerId = targetPeerId;
             updateUI();
-            appendMessage(`'${targetPeerId}' への接続を試みています...`);
             appendMessage('マイクへのアクセスを要求しています...');
 
             try {
@@ -448,25 +426,100 @@
                         sampleRate: 44100
                     }
                 });
-                localAudio.srcObject = AppState.audioStream; // 自分の音声をモニター（muted）
+
+                localAudio.srcObject = AppState.audioStream;
                 localAudio.play().catch(e => console.warn("Local audio playback failed:", e));
 
-                // ホスト側とは異なり、接続側はIDを自動生成して初期化
+                // PeerJS初期化（IDは自動生成）
+                initializePeer();
+
+                AppState.peer.on('open', async (id) => {
+                    AppState.myPeerId = id; // PeerJSによって割り当てられたIDを保存
+
+                    // ルーム管理APIにルーム情報を登録
+                    try {
+                        const response = await fetch(`${AppState.apiBaseUrl}/rooms`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ name: roomName, hostPeerId: AppState.myPeerId })
+                        });
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+                        const roomData = await response.json();
+                        AppState.currentRoomId = roomData.roomId; // 作成されたルームのIDを保持
+
+                        AppState.isHost = true;
+                        AppState.isConnected = false; // まだゲストとは繋がっていない
+                        AppState.remotePeerId = '';
+                        AppState.connectionStatus = 'connected'; // PeerJSサーバーに接続済み
+                        appendMessage(`ルーム「${roomName}」を作成し、ホストとして待機中。ルームID: ${AppState.currentRoomId}`);
+                        startRecordingTimer();
+                        updateUI();
+                        showToast(`ルーム「${roomName}」を作成しました！`);
+                        roomNameInput.value = ''; // 入力欄をクリア
+                        fetchRooms(); // ルーム一覧を更新して自分のルームを表示
+                    } catch (apiError) {
+                        console.error('ルーム作成APIエラー:', apiError);
+                        appendMessage(`ルーム作成エラー: ${apiError.message}`, 'APIエラー');
+                        AppState.connectionStatus = 'error';
+                        updateUI();
+                        // APIエラーの場合はPeerJSもクリーンアップ
+                        if (AppState.peer) AppState.peer.destroy();
+                        if (AppState.audioStream) AppState.audioStream.getTracks().forEach(track => track.stop());
+                    }
+                });
+
+            } catch (error) {
+                console.error('ホスト開始エラー:', error);
+                AppState.connectionStatus = 'error';
+                appendMessage(`ホスト開始エラー: マイクへのアクセスを許可してください (${error.message})`, 'エラー');
+                updateUI();
+            }
+        }
+
+        // ルームに参加する
+        async function joinRoom(roomId, hostPeerId, roomName) {
+            if (AppState.isConnected) {
+                showToast('すでに通話中です。');
+                return;
+            }
+
+            AppState.connectionStatus = 'connecting';
+            AppState.remotePeerId = hostPeerId; // ホストのPeer IDに設定
+            AppState.currentRoomId = roomId; // 参加するルームのIDを保持
+            updateUI();
+            appendMessage(`ルーム「${roomName}」(${hostPeerId}) への接続を試みています...`);
+            appendMessage('マイクへのアクセスを要求しています...');
+
+            try {
+                AppState.audioStream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 44100
+                    }
+                });
+                localAudio.srcObject = AppState.audioStream;
+                localAudio.play().catch(e => console.warn("Local audio playback failed:", e));
+
+                // PeerJS初期化 (ゲスト側はIDを自動生成)
                 initializePeer();
 
                 AppState.peer.on('open', () => {
                     // データ接続を開始
-                    const dataConn = AppState.peer.connect(targetPeerId);
+                    const dataConn = AppState.peer.connect(hostPeerId);
                     setupDataConnectionEvents(dataConn);
 
                     // メディア接続（音声通話）を開始
-                    const mediaCall = AppState.peer.call(targetPeerId, AppState.audioStream);
-                    AppState.currentCall = mediaCall; // 現在の通話を保持
-                    AppState.isGuest = true;
+                    const mediaCall = AppState.peer.call(hostPeerId, AppState.audioStream);
+                    AppState.currentCall = mediaCall;
+                    AppState.isHost = false; // ゲストとして参加
                     AppState.isConnected = true;
                     AppState.connectionStatus = 'connected';
-                    setupMediaCallEvents(mediaCall); // MediaConnectionイベントを設定
-                    appendMessage(`'${targetPeerId}' に接続しました。`, 'システム');
+                    setupMediaCallEvents(mediaCall);
+                    appendMessage(`ルーム「${roomName}」に接続しました。`, 'システム');
                     updateUI();
                 });
 
@@ -479,7 +532,7 @@
         }
 
         // 通話終了
-        function endCall() {
+        async function endCall() {
             if (AppState.currentCall) {
                 AppState.currentCall.close();
             }
@@ -500,32 +553,103 @@
                 AppState.recordingTimer = null;
             }
 
+            // ホストとしてルームを作成していた場合、ルームを削除
+            if (AppState.isHost && AppState.currentRoomId) {
+                try {
+                    const response = await fetch(`${AppState.apiBaseUrl}/rooms/${AppState.currentRoomId}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    appendMessage(`ルーム「${AppState.currentRoomId}」を削除しました。`, 'システム');
+                } catch (apiError) {
+                    console.error('ルーム削除APIエラー:', apiError);
+                    appendMessage(`ルーム削除エラー: ${apiError.message}`, 'APIエラー');
+                }
+            }
+
+            // PeerJSインスタンスを破棄して再初期化可能な状態にする
+            if (AppState.peer) {
+                AppState.peer.destroy();
+                AppState.peer = null;
+            }
+            initializePeer(); // 新しいPeerインスタンスを作成し、IDを再取得
+            
             AppState.isConnected = false;
             AppState.isHost = false;
-            AppState.isGuest = false;
             AppState.remotePeerId = '';
+            AppState.currentRoomId = null;
             AppState.currentCall = null;
             AppState.dataConnection = null;
             AppState.connectionStatus = 'disconnected';
 
             appendMessage('通話が終了しました。', 'システム');
             updateUI();
+            fetchRooms(); // ルーム一覧を再読み込み
         }
 
         // 録音タイマー開始 (ホスト側のみ)
         function startRecordingTimer() {
             AppState.recordingTime = 0;
-            if (AppState.recordingTimer) clearInterval(AppState.recordingTimer); // 既存のタイマーがあればクリア
+            if (AppState.recordingTimer) clearInterval(AppState.recordingTimer);
             AppState.recordingTimer = setInterval(() => {
                 AppState.recordingTime++;
                 recordingTimeEl.textContent = formatTime(AppState.recordingTime);
             }, 1000);
         }
 
+        // ルーム一覧を取得して表示
+        async function fetchRooms() {
+            roomsContainer.innerHTML = '<p class="text-gray-600 text-center">ルームを読み込み中...</p>';
+            try {
+                const response = await fetch(`${AppState.apiBaseUrl}/rooms`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const rooms = await response.json();
+                
+                roomsContainer.innerHTML = ''; // クリア
+
+                if (rooms.length === 0) {
+                    roomsContainer.innerHTML = '<p class="text-gray-600 text-center">現在、作成されているルームはありません。</p>';
+                } else {
+                    rooms.forEach(room => {
+                        const roomDiv = document.createElement('div');
+                        roomDiv.className = 'flex items-center justify-between p-3 bg-white border border-gray-200 rounded-md shadow-sm';
+                        roomDiv.innerHTML = `
+                            <span class="font-semibold text-gray-800 text-lg">${room.name}</span>
+                            <button class="join-room-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-lg text-sm transition-colors"
+                                data-room-id="${room.roomId}"
+                                data-host-peer-id="${room.hostPeerId}"
+                                data-room-name="${room.name}">
+                                参加
+                            </button>
+                        `;
+                        roomsContainer.appendChild(roomDiv);
+                    });
+
+                    // 参加ボタンにイベントリスナーを設定
+                    document.querySelectorAll('.join-room-button').forEach(button => {
+                        button.addEventListener('click', (e) => {
+                            const roomId = e.target.dataset.roomId;
+                            const hostPeerId = e.target.dataset.hostPeerId;
+                            const roomName = e.target.dataset.roomName;
+                            joinRoom(roomId, hostPeerId, roomName);
+                        });
+                    });
+                }
+            } catch (error) {
+                console.error('ルーム一覧取得エラー:', error);
+                roomsContainer.innerHTML = `<p class="text-red-600 text-center">ルーム一覧の取得に失敗しました: ${error.message}</p>`;
+                showToast('ルーム一覧の取得に失敗しました。APIサーバーが起動しているか確認してください。');
+            }
+        }
+
         // --- イベントリスナー ---
-        hostButton.addEventListener('click', startHosting);
-        connectButton.addEventListener('click', connectToHost);
+        createRoomButton.addEventListener('click', createRoomAndHost);
         endCallButton.addEventListener('click', endCall);
+        refreshRoomsButton.addEventListener('click', fetchRooms);
 
         sendMessageButton.addEventListener('click', () => {
             if (AppState.dataConnection && AppState.dataConnection.open) {
@@ -546,18 +670,20 @@
             }
         });
 
-        copyIdButton.addEventListener('click', () => {
+        copyIdButton.addEventListener('click', () => { // デバッグ用
             copyToClipboard(myPeerIdEl.textContent);
         });
 
-        // ページ読み込み時にPeerJSインスタンスを初期化（IDは後で自動生成または指定）
-        // PeerJSサーバーへの接続自体は最初に行う
-        initializePeer();
-        updateUI(); // 初期UI表示
+        // 初期化処理
+        document.addEventListener('DOMContentLoaded', () => {
+            initializePeer(); // まずPeerJSサーバーに接続し、Peer IDを取得
+            fetchRooms(); // ルーム一覧を初回ロード
+            updateUI(); // 初期UI表示
+            appendMessage('リアルタイム通話を開始するには、新しいルームを作成するか、既存のルームに参加してください。', 'システム');
+        });
 
-        // 初回メッセージ
-        appendMessage('リアルタイム通話を開始するには、「ホストになる」か、相手のIDを入力して「相手に接続する」を選択してください。', 'システム');
-
+        // 定期的にルーム一覧を更新 (任意)
+        // setInterval(fetchRooms, 30000); // 30秒ごとに更新
     </script>
 </body>
 </html>
