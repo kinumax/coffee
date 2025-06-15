@@ -7,9 +7,9 @@
     <meta name="description" content="Coffeeは音声配信プラットフォームです。お気に入りの番組を聴いたり、自分で配信したりできます。">
     <meta name="keywords" content="音声配信, ポッドキャスト, ラジオ, 音声メディア">
     <meta name="author" content="Coffee Team">
-    
+
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -49,23 +49,218 @@
             0%, 100% { transform: scaleY(1); }
             50% { transform: scaleY(1.5); }
         }
+        .volume-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .volume-indicator {
+            height: 100%;
+            background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444);
+            border-radius: 2px;
+            transition: width 0.1s ease;
+        }
     </style>
 </head>
 <body class="min-h-screen transition-colors duration-300">
     <div id="app" class="max-w-md mx-auto min-h-screen relative"></div>
 
     <script>
+        // 音声録音クラス
+        class AudioRecorder {
+            constructor() {
+                this.mediaRecorder = null;
+                this.audioChunks = [];
+                this.stream = null;
+                this.analyser = null;
+                this.audioContext = null;
+                this.volumeCallback = null;
+                this.animationFrameId = null; // To store the requestAnimationFrame ID
+            }
+
+            async init() {
+                try {
+                    this.stream = await navigator.mediaDevices.getUserMedia({
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true,
+                            sampleRate: 44100
+                        }
+                    });
+
+                    // 音量レベル分析のためのセットアップ
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    this.analyser = this.audioContext.createAnalyser();
+                    const source = this.audioContext.createMediaStreamSource(this.stream);
+                    source.connect(this.analyser);
+                    this.analyser.fftSize = 256;
+
+                    this.mediaRecorder = new MediaRecorder(this.stream, {
+                        mimeType: 'audio/webm;codecs=opus'
+                    });
+
+                    this.mediaRecorder.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            this.audioChunks.push(event.data);
+                        }
+                    };
+
+                    return true;
+                } catch (error) {
+                    console.error('マイクアクセスエラー:', error);
+                    return false;
+                }
+            }
+
+            startRecording(onVolumeUpdate) {
+                if (!this.mediaRecorder || this.mediaRecorder.state === 'recording') return false;
+
+                this.audioChunks = [];
+                this.volumeCallback = onVolumeUpdate;
+                this.mediaRecorder.start(100); // 100msごとにデータを取得
+                this.startVolumeMonitoring();
+                return true;
+            }
+
+            async stopRecording() {
+                if (this.mediaRecorder && this.mediaRecorder.state === 'recording') {
+                    this.mediaRecorder.stop();
+                    this.stopVolumeMonitoring();
+                    // mediaRecorder.onstop is an event listener that fires after data is available
+                    return new Promise((resolve) => {
+                        this.mediaRecorder.onstop = () => {
+                            const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' });
+                            // Clean up stream tracks after recording stops
+                            this.stream.getTracks().forEach(track => track.stop());
+                            if (this.audioContext) {
+                                this.audioContext.close();
+                                this.audioContext = null;
+                                this.analyser = null;
+                            }
+                            this.stream = null;
+                            this.mediaRecorder = null;
+                            resolve(audioBlob);
+                        };
+                    });
+                }
+                return null;
+            }
+
+            startVolumeMonitoring() {
+                if (!this.analyser) return;
+
+                const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+
+                const updateVolume = () => {
+                    if (!this.volumeCallback || !AppState.isRecording) { // Ensure to stop if not recording
+                        cancelAnimationFrame(this.animationFrameId);
+                        this.animationFrameId = null;
+                        return;
+                    }
+
+                    this.analyser.getByteFrequencyData(dataArray);
+                    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                    const volumeLevel = (average / 255) * 100;
+
+                    this.volumeCallback(volumeLevel);
+
+                    this.animationFrameId = requestAnimationFrame(updateVolume);
+                };
+
+                this.animationFrameId = requestAnimationFrame(updateVolume);
+            }
+
+            stopVolumeMonitoring() {
+                if (this.animationFrameId) {
+                    cancelAnimationFrame(this.animationFrameId);
+                    this.animationFrameId = null;
+                }
+                this.volumeCallback = null;
+            }
+
+            cleanup() {
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.stream = null;
+                }
+                if (this.audioContext) {
+                    this.audioContext.close();
+                    this.audioContext = null;
+                    this.analyser = null;
+                }
+                if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+                    this.mediaRecorder.stop();
+                }
+                this.stopVolumeMonitoring();
+                this.audioChunks = [];
+            }
+        }
+
+        // 音声配信クラス
+        class AudioStreamer {
+            constructor() {
+                this.recordings = [];
+            }
+
+            async uploadRecording(audioBlob, metadata) {
+                // 実際のサーバーに送信する場合のコード例
+                // const formData = new FormData();
+                // formData.append('audio', audioBlob, 'recording.webm');
+                // formData.append('metadata', JSON.stringify(metadata));
+
+                // const response = await fetch('/api/upload', {
+                //     method: 'POST',
+                //     body: formData
+                // });
+
+                // ローカルでのシミュレーション
+                return new Promise((resolve) => {
+                    const recording = {
+                        id: Date.now(),
+                        blob: audioBlob,
+                        url: URL.createObjectURL(audioBlob),
+                        ...metadata,
+                        uploadedAt: new Date()
+                    };
+
+                    this.recordings.push(recording);
+
+                    setTimeout(() => {
+                        resolve({
+                            success: true,
+                            url: recording.url,
+                            id: recording.id
+                        });
+                    }, 1000);
+                });
+            }
+
+            getRecordings() {
+                return this.recordings;
+            }
+        }
+
         // アプリの状態管理
         const AppState = {
             currentTab: 'home',
             isPlaying: false,
             isRecording: false,
             currentShow: null,
+            audioPlayer: new Audio(), // Global Audio element
             searchQuery: '',
             recordingTime: 0,
             recordingTimer: null,
             isDarkMode: false,
-            
+            volumeLevel: 0,
+            showRecordingForm: false,
+            recordingTitle: '',
+            recordingDescription: '',
+            currentRecordingBlob: null,
+            isUploading: false,
+
             featuredShows: [
                 {
                     id: 1,
@@ -77,7 +272,8 @@
                     isLive: true,
                     avatar: "☕",
                     likes: 89,
-                    comments: 23
+                    comments: 23,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" // Example audio
                 },
                 {
                     id: 2,
@@ -89,7 +285,8 @@
                     isLive: false,
                     avatar: "📚",
                     likes: 156,
-                    comments: 34
+                    comments: 34,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" // Example audio
                 },
                 {
                     id: 3,
@@ -101,7 +298,8 @@
                     isLive: true,
                     avatar: "📰",
                     likes: 203,
-                    comments: 67
+                    comments: 67,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" // Example audio
                 },
                 {
                     id: 4,
@@ -113,7 +311,8 @@
                     isLive: false,
                     avatar: "🎷",
                     likes: 334,
-                    comments: 12
+                    comments: 12,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" // Example audio
                 },
                 {
                     id: 5,
@@ -125,144 +324,17 @@
                     isLive: true,
                     avatar: "🌙",
                     likes: 102,
-                    comments: 45
-                },
-                {
-                    id: 6,
-                    title: "英語で学ぼう",
-                    host: "中村エリカ",
-                    listeners: 321,
-                    duration: "20:11",
-                    category: "学習",
-                    isLive: false,
-                    avatar: "📘",
-                    likes: 89,
-                    comments: 18
-                },
-                {
-                    id: 7,
-                    title: "料理の時間",
-                    host: "田村シェフ",
-                    listeners: 678,
-                    duration: "15:30",
-                    category: "ライフスタイル",
-                    isLive: true,
-                    avatar: "🍳",
-                    likes: 234,
-                    comments: 56
-                },
-                {
-                    id: 8,
-                    title: "歴史探訪",
-                    host: "古川先生",
-                    listeners: 445,
-                    duration: "28:45",
-                    category: "学習",
-                    isLive: false,
-                    avatar: "🏛️",
-                    likes: 178,
-                    comments: 29
-                },
-                {
-                    id: 9,
-                    title: "アニメ談話",
-                    host: "アニ子",
-                    listeners: 1122,
-                    duration: "35:12",
-                    category: "トーク",
-                    isLive: false,
-                    avatar: "🎌",
-                    likes: 567,
-                    comments: 123
-                },
-                {
-                    id: 10,
-                    title: "株式投資の基本",
-                    host: "投資太郎",
-                    listeners: 789,
-                    duration: "22:18",
-                    category: "学習",
-                    isLive: true,
-                    avatar: "📈",
-                    likes: 298,
-                    comments: 87
-                },
-                {
-                    id: 11,
-                    title: "瞑想とマインドフルネス",
-                    host: "静香",
-                    listeners: 334,
-                    duration: "17:55",
-                    category: "ライフスタイル",
-                    isLive: false,
-                    avatar: "🧘",
-                    likes: 145,
-                    comments: 32
-                },
-                {
-                    id: 12,
-                    title: "映画レビュー",
-                    host: "シネマ太郎",
-                    listeners: 556,
-                    duration: "31:22",
-                    category: "トーク",
-                    isLive: true,
-                    avatar: "🎬",
-                    likes: 223,
-                    comments: 78
-                },
-                {
-                    id: 13,
-                    title: "旅行記",
-                    host: "世界一周ハナコ",
-                    listeners: 667,
-                    duration: "26:40",
-                    category: "ライフスタイル",
-                    isLive: false,
-                    avatar: "✈️",
-                    likes: 412,
-                    comments: 95
-                },
-                {
-                    id: 14,
-                    title: "プログラミング入門",
-                    host: "コード先生",
-                    listeners: 423,
-                    duration: "42:15",
-                    category: "学習",
-                    isLive: false,
-                    avatar: "💻",
-                    likes: 189,
-                    comments: 67
-                },
-                {
-                    id: 15,
-                    title: "クラシック音楽の世界",
-                    host: "バッハ子",
-                    listeners: 298,
-                    duration: "38:33",
-                    category: "音楽",
-                    isLive: true,
-                    avatar: "🎼",
-                    likes: 167,
-                    comments: 28
-                },
-                {
-                    id: 16,
-                    title: "ペットとの暮らし",
-                    host: "動物大好きユキ",
-                    listeners: 512,
-                    duration: "19:47",
-                    category: "ライフスタイル",
-                    isLive: false,
-                    avatar: "🐾",
-                    likes: 278,
-                    comments: 54
+                    comments: 45,
+                    audioUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" // Example audio
                 }
             ],
-            
-            categories: ["すべて", "ライフスタイル", "読書", "ニュース", "音楽", "トーク", "学習"]
+
+            categories: ["すべて", "ライフスタイル", "読書", "ニュース", "音楽", "トーク", "学習", "ユーザー投稿"]
         };
+
+        // グローバルインスタンス
+        const audioRecorder = new AudioRecorder();
+        const audioStreamer = new AudioStreamer();
 
         // アイコンSVGの定義
         const Icons = {
@@ -275,18 +347,20 @@
             Search: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>',
             Heart: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>',
             MessageCircle: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>',
-            Share2: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/></svg>',
             Volume2: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/></svg>',
             Coffee: '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-8a2 2 0 00-2 2v2m12 0H4m12 0l1.5 8.5a1.5 1.5 0 01-1.5 1.5H8a1.5 1.5 0 01-1.5-1.5L8 6m4 0V4m0 0h4m-4 0H8"/></svg>',
             Moon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>',
-            Sun: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>'
+            Sun: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>',
+            Upload: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>',
+            X: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>',
+            Check: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>'
         };
 
         // ユーティリティ関数
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
             const secs = seconds % 60;
-            return mins + ':' + secs.toString().padStart(2, '0');
+            return mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
         }
 
         function formatNumber(num) {
@@ -319,31 +393,73 @@
 
         function handlePlay(showId) {
             const show = AppState.featuredShows.find(s => s.id === showId);
-            if (!show) return;
-            
+            if (!show || !show.audioUrl) {
+                console.error("No audio URL found for this show.");
+                return;
+            }
+
             if (AppState.currentShow && AppState.currentShow.id === show.id) {
+                // Toggle play/pause for the current show
+                if (AppState.isPlaying) {
+                    AppState.audioPlayer.pause();
+                } else {
+                    AppState.audioPlayer.play();
+                }
                 AppState.isPlaying = !AppState.isPlaying;
             } else {
+                // Play a new show
+                AppState.audioPlayer.pause(); // Pause any currently playing audio
                 AppState.currentShow = show;
+                AppState.audioPlayer.src = show.audioUrl;
+                AppState.audioPlayer.play();
                 AppState.isPlaying = true;
             }
             render();
         }
 
-        function handleRecord() {
+        // Event listener for when audio finishes playing
+        AppState.audioPlayer.onended = () => {
+            AppState.isPlaying = false;
+            AppState.currentShow = null;
+            render();
+        };
+
+        async function handleRecord() {
             if (AppState.isRecording) {
+                // 録音停止
+                const audioBlob = await audioRecorder.stopRecording();
                 AppState.isRecording = false;
-                AppState.recordingTime = 0;
+                AppState.recordingTime = 0; // Reset recording time
+                AppState.currentRecordingBlob = audioBlob;
+                AppState.showRecordingForm = true;
+
                 if (AppState.recordingTimer) {
                     clearInterval(AppState.recordingTimer);
+                    AppState.recordingTimer = null;
                 }
+                // Cleanup recorder resources after stopping
+                audioRecorder.cleanup();
             } else {
-                AppState.isRecording = true;
-                AppState.recordingTime = 0;
-                AppState.recordingTimer = setInterval(() => {
-                    AppState.recordingTime++;
-                    updateRecordingTime();
-                }, 1000);
+                // 録音開始
+                const initialized = await audioRecorder.init();
+                if (!initialized) {
+                    alert('マイクへのアクセスが許可されていません。ブラウザの設定を確認してください。');
+                    return;
+                }
+
+                const started = audioRecorder.startRecording((volume) => {
+                    AppState.volumeLevel = volume;
+                    updateVolumeIndicator();
+                });
+
+                if (started) {
+                    AppState.isRecording = true;
+                    AppState.recordingTime = 0;
+                    AppState.recordingTimer = setInterval(() => {
+                        AppState.recordingTime++;
+                        updateRecordingTime();
+                    }, 1000);
+                }
             }
             render();
         }
@@ -356,7 +472,7 @@
         function handleLike(showId) {
             const show = AppState.featuredShows.find(s => s.id === showId);
             if (show) {
-                show.likes++;
+                show.likes = (show.likes || 0) + 1; // Initialize if undefined
                 render();
             }
         }
@@ -367,10 +483,96 @@
             render();
         }
 
+        function handleRecordingTitleChange(event) {
+            AppState.recordingTitle = event.target.value;
+        }
+
+        function handleRecordingDescriptionChange(event) {
+            AppState.recordingDescription = event.target.value;
+        }
+
+        function handleCancelRecording() {
+            AppState.showRecordingForm = false;
+            AppState.currentRecordingBlob = null;
+            AppState.recordingTitle = '';
+            AppState.recordingDescription = '';
+            AppState.isUploading = false; // Reset upload status
+            render();
+        }
+
+        async function handleUploadRecording() {
+            if (!AppState.currentRecordingBlob || !AppState.recordingTitle.trim()) {
+                alert('タイトルを入力してください。');
+                return;
+            }
+
+            AppState.isUploading = true;
+            render();
+
+            try {
+                const metadata = {
+                    title: AppState.recordingTitle,
+                    description: AppState.recordingDescription,
+                    host: 'あなた',
+                    category: 'ユーザー投稿',
+                    duration: formatTime(AppState.recordingTime),
+                    avatar: '🎙️'
+                };
+
+                const result = await audioStreamer.uploadRecording(AppState.currentRecordingBlob, metadata);
+
+                if (result.success) {
+                    // 新しい番組をリストに追加
+                    const newShow = {
+                        id: result.id,
+                        title: metadata.title,
+                        host: metadata.host,
+                        listeners: 0,
+                        duration: metadata.duration,
+                        category: metadata.category,
+                        isLive: false,
+                        avatar: metadata.avatar,
+                        likes: 0,
+                        comments: 0,
+                        audioUrl: result.url,
+                        isUserGenerated: true
+                    };
+
+                    AppState.featuredShows.unshift(newShow); // Add to the beginning
+
+                    // 状態をリセット
+                    AppState.showRecordingForm = false;
+                    AppState.currentRecordingBlob = null;
+                    AppState.recordingTitle = '';
+                    AppState.recordingDescription = '';
+                    AppState.isUploading = false;
+
+                    // ホーム画面に戻る
+                    AppState.currentTab = 'home';
+
+                    alert('配信が正常にアップロードされました！');
+                    render();
+                } else {
+                    throw new Error('アップロードに失敗しました');
+                }
+            } catch (error) {
+                AppState.isUploading = false;
+                alert('アップロードに失敗しました: ' + error.message);
+                render();
+            }
+        }
+
         function updateRecordingTime() {
             const timeElement = document.getElementById('recording-time');
             if (timeElement) {
                 timeElement.textContent = formatTime(AppState.recordingTime);
+            }
+        }
+
+        function updateVolumeIndicator() {
+            const volumeIndicator = document.getElementById('volume-indicator');
+            if (volumeIndicator) {
+                volumeIndicator.style.width = AppState.volumeLevel + '%';
             }
         }
 
@@ -381,15 +583,16 @@
                     s.title.toLowerCase().includes(AppState.searchQuery.toLowerCase()) ||
                     s.host.toLowerCase().includes(AppState.searchQuery.toLowerCase()) ||
                     s.category.toLowerCase().includes(AppState.searchQuery.toLowerCase())
-                  )
+                )
                 : AppState.featuredShows;
-            
-            // 検索クエリがある場合、フィルタリングされた番組のみを表示
+
+            // If a search query exists and this show is not in the filtered results, don't render it.
             if (AppState.searchQuery && !filteredShows.some(s => s.id === show.id)) {
                 return '';
             }
 
             const liveIndicator = show.isLive ? '<span class="bg-red-500 text-white text-xs px-2 py-1 rounded-full">LIVE</span>' : '';
+            const userIndicator = show.isUserGenerated ? '<span class="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">ユーザー投稿</span>' : '';
             const playButtonIcon = (AppState.currentShow && AppState.currentShow.id === show.id && AppState.isPlaying)
                 ? createIcon('Pause')
                 : createIcon('Play');
@@ -410,6 +613,7 @@
                         <div class="flex-1 min-w-0">
                             <div class="flex items-center space-x-2 mb-1">
                                 ${liveIndicator}
+                                ${userIndicator}
                                 <span class="text-xs ${categoryBg} px-2 py-0.5 rounded-full">
                                     ${show.category}
                                 </span>
@@ -440,233 +644,234 @@
             `;
         }
 
-        function createHeader() {
-            const recordingSection = AppState.isRecording ? `
-                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 ${AppState.isDarkMode ? 'bg-red-900 border-red-700 text-red-100' : ''}">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-2">
-                            <div class="flex space-x-1">
-                                <div class="w-1 h-4 bg-red-500 rounded wave-animation" style="animation-delay: 0ms"></div>
-                                <div class="w-1 h-4 bg-red-500 rounded wave-animation" style="animation-delay: 200ms"></div>
-                                <div class="w-1 h-4 bg-red-500 rounded wave-animation" style="animation-delay: 400ms"></div>
-                            </div>
-                            <span class="text-red-600 font-semibold ${AppState.isDarkMode ? 'text-red-400' : ''}">録音中...</span>
-                        </div>
-                        <span id="recording-time" class="text-red-600 font-mono ${AppState.isDarkMode ? 'text-red-400' : ''}">${formatTime(AppState.recordingTime)}</span>
-                    </div>
-                </div>
-            ` : '';
+        function createRecordingForm() {
+            if (!AppState.showRecordingForm) return '';
 
-            const recordButtonClass = AppState.isRecording
-                ? 'bg-red-500 text-white recording-pulse'
-                : 'bg-amber-500 hover:bg-amber-600 text-white';
-
-            const headerBg = AppState.isDarkMode ? 'bg-black border-gray-700' : 'bg-white border-amber-100';
-            const titleColor = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-800';
-            const iconColor = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600';
-            const inputBg = AppState.isDarkMode ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400' : 'border-amber-200';
-            const searchIconColor = AppState.isDarkMode ? 'text-gray-400' : 'text-gray-400';
+            const overlayBg = AppState.isDarkMode ? 'bg-black bg-opacity-75' : 'bg-black bg-opacity-50';
+            const formBg = AppState.isDarkMode ? 'bg-gray-800 text-white' : 'bg-white';
+            const inputBg = AppState.isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'border-gray-300';
+            const buttonBgPrimary = AppState.isDarkMode ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-500 hover:bg-amber-600';
+            const buttonBgSecondary = AppState.isDarkMode ? 'bg-gray-600 hover:bg-gray-700' : 'bg-gray-200 hover:bg-gray-300 text-gray-800';
 
             return `
-                <div class="${headerBg} shadow-sm border-b p-4">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center space-x-2">
-                            ${createIcon('Coffee', iconColor)}
-                            <h1 class="text-2xl font-bold ${titleColor}">Coffee</h1>
+                <div class="fixed inset-0 ${overlayBg} flex items-center justify-center p-4 z-50">
+                    <div class="${formBg} rounded-lg p-6 shadow-xl w-full max-w-sm">
+                        <h2 class="text-xl font-bold mb-4 text-center">配信をアップロード</h2>
+                        ${AppState.currentRecordingBlob ? `
+                            <div class="mb-4 text-center">
+                                <audio controls src="${URL.createObjectURL(AppState.currentRecordingBlob)}" class="w-full"></audio>
+                                <p class="text-sm text-gray-500 mt-2">録音時間: ${formatTime(AppState.currentRecordingBlob.size / 1000)} (ダミー時間)</p>
+                            </div>
+                        ` : ''}
+                        <div class="mb-4">
+                            <label for="recording-title" class="block text-sm font-medium mb-1">タイトル</label>
+                            <input
+                                type="text"
+                                id="recording-title"
+                                value="${AppState.recordingTitle}"
+                                oninput="handleRecordingTitleChange(event)"
+                                placeholder="配信タイトルを入力"
+                                class="w-full p-2 border ${inputBg} rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            />
                         </div>
-                        <div class="flex items-center space-x-2">
-                            <button onclick="handleDarkModeToggle()" class="p-2 rounded-full ${AppState.isDarkMode ? 'text-gray-300 hover:text-white' : 'text-gray-600 hover:text-gray-800'} transition-colors">
-                                ${AppState.isDarkMode ? createIcon('Sun') : createIcon('Moon')}
+                        <div class="mb-6">
+                            <label for="recording-description" class="block text-sm font-medium mb-1">説明 (オプション)</label>
+                            <textarea
+                                id="recording-description"
+                                oninput="handleRecordingDescriptionChange(event)"
+                                placeholder="配信内容の説明"
+                                rows="3"
+                                class="w-full p-2 border ${inputBg} rounded-md focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            >${AppState.recordingDescription}</textarea>
+                        </div>
+                        <div class="flex justify-end space-x-3">
+                            <button
+                                onclick="handleCancelRecording()"
+                                class="px-4 py-2 ${buttonBgSecondary} rounded-md font-semibold transition-colors"
+                                ${AppState.isUploading ? 'disabled' : ''}
+                            >
+                                キャンセル
                             </button>
-                            <button onclick="handleRecord()" class="p-3 rounded-full transition-all ${recordButtonClass}">
-                                ${createIcon('Mic')}
+                            <button
+                                onclick="handleUploadRecording()"
+                                class="px-4 py-2 ${buttonBgPrimary} text-white rounded-md font-semibold transition-colors flex items-center justify-center"
+                                ${AppState.isUploading ? 'disabled' : ''}
+                            >
+                                ${AppState.isUploading ? `
+                                    <svg class="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    アップロード中...
+                                ` : `
+                                    ${createIcon('Upload', 'w-5 h-5 mr-2')}
+                                    アップロード
+                                `}
                             </button>
                         </div>
-                    </div>
-                    
-                    ${recordingSection}
-
-                    <div class="relative">
-                        <div class="absolute left-3 top-3 ${searchIconColor}">
-                            ${createIcon('Search')}
-                        </div>
-                        <input
-                            type="text"
-                            placeholder="番組やパーソナリティを検索"
-                            value="${AppState.searchQuery}"
-                            oninput="handleSearch(this.value)"
-                            class="w-full pl-10 pr-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-amber-300 ${inputBg}"
-                        />
                     </div>
                 </div>
             `;
         }
 
-        function createMainContent() {
-            const titleColor = AppState.isDarkMode ? 'text-white' : 'text-gray-800';
-            
+
+        // メインレンダリング関数
+        function render() {
+            const app = document.getElementById('app');
+            if (!app) return;
+
+            updateBodyClass(); // Update body class on every render
+
+            const bgColor = AppState.isDarkMode ? 'bg-coffee-950' : 'bg-gradient-to-b from-amber-50 to-orange-50';
+            const textColor = AppState.isDarkMode ? 'text-white' : 'text-gray-900';
+            const headerBg = AppState.isDarkMode ? 'bg-coffee-900' : 'bg-white';
+            const navBg = AppState.isDarkMode ? 'bg-coffee-900' : 'bg-white';
+            const navItemColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+            const activeNavItemColor = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600';
+            const activeNavItemBorder = AppState.isDarkMode ? 'border-amber-400' : 'border-amber-500';
+            const buttonColor = AppState.isDarkMode ? 'text-white' : 'text-gray-700';
+            const searchInputBg = AppState.isDarkMode ? 'bg-gray-700 border-gray-600 text-white' : 'bg-gray-50 border-gray-300';
+            const categoryButtonBg = AppState.isDarkMode ? 'bg-gray-700' : 'bg-gray-100';
+            const categoryButtonText = AppState.isDarkMode ? 'text-gray-200' : 'text-gray-700';
+            const activeCategoryButtonBg = AppState.isDarkMode ? 'bg-amber-600' : 'bg-amber-500';
+            const activeCategoryButtonText = 'text-white';
+            const footerBg = AppState.isDarkMode ? 'bg-coffee-900' : 'bg-white';
+
+
+            let content = '';
             if (AppState.currentTab === 'home') {
-                const categoryButtons = AppState.categories.map(category => {
-                    const buttonStyle = AppState.isDarkMode 
-                        ? 'bg-gray-800 border-gray-600 text-gray-200 hover:bg-gray-700' 
-                        : 'bg-white border-amber-200 hover:bg-amber-50';
-                    return `<button class="flex-shrink-0 px-4 py-2 border rounded-full text-sm transition-colors ${buttonStyle}">
-                        ${category}
-                    </button>`;
-                }).join('');
+                const filteredShows = AppState.featuredShows.filter(show =>
+                    show.title.toLowerCase().includes(AppState.searchQuery.toLowerCase()) ||
+                    show.host.toLowerCase().includes(AppState.searchQuery.toLowerCase()) ||
+                    show.category.toLowerCase().includes(AppState.searchQuery.toLowerCase())
+                );
 
-                const searchTitle = AppState.searchQuery
-                    ? `検索結果: "${AppState.searchQuery}"`
-                    : 'おすすめの番組';
-
-                const showCards = AppState.featuredShows
-                    .filter(show => { // Search filtering applied here
-                        if (!AppState.searchQuery) return true;
-                        const query = AppState.searchQuery.toLowerCase();
-                        return show.title.toLowerCase().includes(query) ||
-                               show.host.toLowerCase().includes(query) ||
-                               show.category.toLowerCase().includes(query);
-                    })
-                    .map(show => createShowCard(show))
-                    .join('');
-
-                return `
-                    <div class="p-4">
-                        <div class="flex space-x-2 mb-4 overflow-x-auto pb-2">
-                            ${categoryButtons}
-                        </div>
-                        <div class="mb-6">
-                            <h2 class="text-lg font-semibold ${titleColor} mb-3">${searchTitle}</h2>
-                            <div class="grid grid-cols-1 gap-3"> ${showCards}
+                content = `
+                    <div class="p-4 ${bgColor} flex-grow">
+                        <div class="mb-4 relative">
+                            <input
+                                type="text"
+                                placeholder="番組を検索..."
+                                oninput="handleSearch(event.target.value)"
+                                value="${AppState.searchQuery}"
+                                class="w-full p-3 pl-10 rounded-full ${searchInputBg} focus:outline-none focus:ring-2 focus:ring-amber-500"
+                            />
+                            <div class="absolute left-3 top-1/2 -translate-y-1/2 ${navItemColor}">
+                                ${createIcon('Search')}
                             </div>
+                        </div>
+
+                        <h2 class="text-xl font-bold mb-4 ${textColor}">人気の番組</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            ${filteredShows.map(createShowCard).join('')}
                         </div>
                     </div>
                 `;
-            } else if (AppState.currentTab === 'create') {
-                const buttonText = AppState.isRecording ? '録音を停止' : '録音を開始';
-                const iconBg = AppState.isDarkMode ? 'bg-gray-800' : 'bg-amber-200';
-                const descColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
-                const buttonBg = AppState.isDarkMode ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-500 hover:bg-amber-600';
-
-                return `
-                    <div class="p-4 flex flex-col items-center justify-center h-[calc(100vh-180px-64px)]">
+            } else if (AppState.currentTab === 'record') {
+                content = `
+                    <div class="flex flex-col items-center justify-center flex-grow p-4 ${bgColor}">
                         <div class="text-center mb-8">
-                            <div class="w-24 h-24 ${iconBg} rounded-full flex items-center justify-center mx-auto mb-4">
-                                ${createIcon('Mic', 'w-12 h-12 text-amber-800')}
-                            </div>
-                            <h2 class="text-xl font-bold ${titleColor} mb-2">新しい番組を配信する</h2>
-                            <p class="${descColor}">あなたの声で、世界にメッセージを届けましょう。</p>
+                            <h2 class="text-2xl font-bold mb-4 ${textColor}">自分の声を配信</h2>
+                            <p class="${textColor} opacity-80">ボタンをタップして録音を開始・停止します。</p>
                         </div>
-                        <button onclick="handleRecord()" class="flex items-center space-x-2 px-6 py-3 rounded-full text-white font-semibold transition-colors ${buttonBg}">
-                            ${createIcon('Mic', 'w-5 h-5')}
-                            <span>${buttonText}</span>
-                        </button>
+
+                        <div class="relative w-32 h-32 flex items-center justify-center mb-8">
+                            <div class="absolute inset-0 rounded-full bg-amber-500 opacity-20 ${AppState.isRecording ? 'recording-pulse' : ''}"></div>
+                            <button
+                                onclick="handleRecord()"
+                                class="w-24 h-24 rounded-full bg-amber-500 flex items-center justify-center shadow-lg transition-all duration-300 transform ${AppState.isRecording ? 'scale-110' : ''}"
+                            >
+                                ${AppState.isRecording ? createIcon('Pause', 'w-10 h-10 text-white') : createIcon('Mic', 'w-10 h-10 text-white')}
+                            </button>
+                        </div>
+
+                        <div class="text-3xl font-mono ${textColor} mb-6" id="recording-time">
+                            ${formatTime(AppState.recordingTime)}
+                        </div>
+
+                        ${AppState.isRecording ? `
+                            <div class="volume-bar w-full max-w-xs mb-4">
+                                <div id="volume-indicator" class="volume-indicator" style="width: ${AppState.volumeLevel}%"></div>
+                            </div>
+                            <p class="text-sm ${textColor} opacity-70">録音中...</p>
+                        ` : `
+                            <p class="text-sm ${textColor} opacity-70">録音準備完了</p>
+                        `}
                     </div>
                 `;
             } else if (AppState.currentTab === 'profile') {
-                const textColor = AppState.isDarkMode ? 'text-gray-200' : 'text-gray-700';
-                const sectionBg = AppState.isDarkMode ? 'bg-black border-gray-700' : 'bg-white border-amber-100';
-
-                return `
-                    <div class="p-4">
-                        <div class="${sectionBg} rounded-lg shadow-sm border p-6 mb-4 text-center">
-                            <div class="w-24 h-24 bg-blue-200 rounded-full flex items-center justify-center text-5xl mx-auto mb-4">
-                                ${createIcon('User', 'w-12 h-12 text-blue-800')}
-                            </div>
-                            <h2 class="text-xl font-bold ${titleColor} mb-1">ユーザー名</h2>
-                            <p class="${textColor}">@user_handle</p>
-                            <button class="mt-4 px-4 py-2 bg-amber-500 text-white rounded-full hover:bg-amber-600 transition-colors text-sm">プロフィールを編集</button>
+                content = `
+                    <div class="flex flex-col items-center justify-center flex-grow p-4 ${bgColor}">
+                        <h2 class="text-2xl font-bold mb-6 ${textColor}">プロフィール</h2>
+                        <div class="w-24 h-24 rounded-full ${AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-200'} flex items-center justify-center text-5xl mb-4 ${textColor}">
+                            ${createIcon('User', 'w-16 h-16')}
                         </div>
+                        <p class="text-xl font-semibold ${textColor} mb-2">ゲストユーザー</p>
+                        <p class="text-sm ${textColor} opacity-70 mb-8">音声配信を楽しんでいます！</p>
 
-                        <div class="${sectionBg} rounded-lg shadow-sm border p-6">
-                            <h3 class="text-lg font-semibold ${titleColor} mb-3">統計情報</h3>
-                            <div class="grid grid-cols-2 gap-4 text-center">
-                                <div>
-                                    <p class="text-2xl font-bold ${titleColor}">120</p>
-                                    <p class="${textColor}">フォロワー</p>
-                                </div>
-                                <div>
-                                    <p class="text-2xl font-bold ${titleColor}">15</p>
-                                    <p class="${textColor}">配信数</p>
-                                </div>
-                            </div>
-                        </div>
+                        <button
+                            onclick="handleDarkModeToggle()"
+                            class="flex items-center space-x-2 px-5 py-2 rounded-full ${AppState.isDarkMode ? 'bg-gray-700 text-white' : 'bg-gray-100 text-gray-800'} shadow-md hover:shadow-lg transition-all duration-200"
+                        >
+                            ${AppState.isDarkMode ? createIcon('Sun', 'w-5 h-5 text-yellow-400') : createIcon('Moon', 'w-5 h-5 text-purple-600')}
+                            <span class="font-medium">${AppState.isDarkMode ? 'ライトモードに切り替え' : 'ダークモードに切り替え'}</span>
+                        </button>
                     </div>
                 `;
             }
-        }
 
-        function createPlayerBar() {
-            if (!AppState.currentShow) return '';
+            app.innerHTML = `
+                <header class="${headerBg} shadow-sm p-4 flex items-center justify-between sticky top-0 z-10">
+                    <div class="flex items-center space-x-2">
+                        ${createIcon('Coffee', 'text-amber-600')}
+                        <h1 class="text-xl font-bold ${textColor}">Coffee</h1>
+                    </div>
+                    <button onclick="handleDarkModeToggle()" class="${buttonColor}">
+                        ${AppState.isDarkMode ? createIcon('Sun') : createIcon('Moon')}
+                    </button>
+                </header>
 
-            const playerBarBg = AppState.isDarkMode ? 'bg-black border-t border-gray-700' : 'bg-white border-t border-amber-100';
-            const titleColor = AppState.isDarkMode ? 'text-white' : 'text-gray-800';
-            const hostColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
-            const playButtonBg = AppState.isDarkMode ? 'bg-amber-600 hover:bg-amber-700' : 'bg-amber-500 hover:bg-amber-600';
+                <main class="flex-grow flex flex-col">
+                    ${content}
+                    ${createRecordingForm()}
+                </main>
 
-            return `
-                <div class="fixed bottom-16 left-0 right-0 max-w-md mx-auto ${playerBarBg} shadow-lg p-3 flex items-center justify-between rounded-t-lg">
-                    <div class="flex items-center space-x-3 flex-1 min-w-0">
-                        <div class="w-10 h-10 bg-amber-100 rounded-md flex items-center justify-center text-lg ${AppState.isDarkMode ? 'bg-gray-800' : ''}">
+                <nav class="${navBg} border-t ${AppState.isDarkMode ? 'border-gray-700' : 'border-gray-200'} p-3 flex justify-around items-center sticky bottom-0 w-full">
+                    <button onclick="handleTabChange('home')" class="flex flex-col items-center text-sm font-medium ${AppState.currentTab === 'home' ? activeNavItemColor : navItemColor} ${AppState.currentTab === 'home' ? activeNavItemBorder : 'border-transparent'} border-b-2 pb-1 transition-colors duration-200">
+                        ${createIcon('Home')}
+                        <span>ホーム</span>
+                    </button>
+                    <button onclick="handleTabChange('record')" class="flex flex-col items-center text-sm font-medium ${AppState.currentTab === 'record' ? activeNavItemColor : navItemColor} ${AppState.currentTab === 'record' ? activeNavItemBorder : 'border-transparent'} border-b-2 pb-1 transition-colors duration-200">
+                        ${createIcon('Mic')}
+                        <span>配信する</span>
+                    </button>
+                    <button onclick="handleTabChange('profile')" class="flex flex-col items-center text-sm font-medium ${AppState.currentTab === 'profile' ? activeNavItemColor : navItemColor} ${AppState.currentTab === 'profile' ? activeNavItemBorder : 'border-transparent'} border-b-2 pb-1 transition-colors duration-200">
+                        ${createIcon('User')}
+                        <span>プロフィール</span>
+                    </button>
+                </nav>
+
+                ${AppState.currentShow ? `
+                    <div class="fixed bottom-[60px] left-0 right-0 p-3 ${AppState.isDarkMode ? 'bg-coffee-800 text-white' : 'bg-amber-100 text-gray-800'} shadow-lg flex items-center space-x-3 transition-transform duration-300 z-40">
+                        <div class="w-10 h-10 ${AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-200'} rounded-full flex items-center justify-center text-lg flex-shrink-0">
                             ${AppState.currentShow.avatar}
                         </div>
-                        <div class="min-w-0">
-                            <p class="text-sm font-semibold truncate ${titleColor}">${AppState.currentShow.title}</p>
-                            <p class="text-xs ${hostColor}">${AppState.currentShow.host}</p>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium truncate">${AppState.currentShow.title}</p>
+                            <p class="text-xs ${AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600'} truncate">${AppState.currentShow.host}</p>
                         </div>
+                        <button onclick="handlePlay(${AppState.currentShow.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-full transition-colors flex-shrink-0">
+                            ${AppState.isPlaying ? createIcon('Pause') : createIcon('Play')}
+                        </button>
                     </div>
-                    <button onclick="handlePlay(${AppState.currentShow.id})" class="p-2 rounded-full text-white transition-colors ${playButtonBg}">
-                        ${AppState.isPlaying ? createIcon('Pause') : createIcon('Play')}
-                    </button>
-                </div>
+                ` : ''}
             `;
-        }
-
-        function createNavBar() {
-            const navBg = AppState.isDarkMode ? 'bg-black border-t border-gray-700' : 'bg-white border-t border-amber-100';
-            const activeClass = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600';
-            const inactiveClass = AppState.isDarkMode ? 'text-gray-400 hover:text-amber-300' : 'text-gray-500 hover:text-amber-500';
-
-            const homeClass = AppState.currentTab === 'home' ? activeClass : inactiveClass;
-            const createClass = AppState.currentTab === 'create' ? activeClass : inactiveClass;
-            const profileClass = AppState.currentTab === 'profile' ? activeClass : inactiveClass;
-
-            return `
-                <div class="fixed bottom-0 left-0 right-0 max-w-md mx-auto ${navBg} shadow-lg py-3 px-4 flex justify-around items-center rounded-t-lg z-10">
-                    <button onclick="handleTabChange('home')" class="flex flex-col items-center text-xs font-medium ${homeClass} transition-colors">
-                        ${createIcon('Home')}
-                        ホーム
-                    </button>
-                    <button onclick="handleTabChange('create')" class="flex flex-col items-center text-xs font-medium ${createClass} transition-colors">
-                        ${createIcon('Plus')}
-                        作成
-                    </button>
-                    <button onclick="handleTabChange('profile')" class="flex flex-col items-center text-xs font-medium ${profileClass} transition-colors">
-                        ${createIcon('User')}
-                        プロフィール
-                    </button>
-                </div>
-            `;
-        }
-
-        // 全体のレンダリング関数
-        function render() {
-            const appDiv = document.getElementById('app');
-            if (!appDiv) return;
-
-            // Update body class on every render to ensure consistency
-            updateBodyClass();
-
-            let html = createHeader();
-            html += createMainContent();
-            html += createPlayerBar();
-            html += createNavBar();
-
-            appDiv.innerHTML = html;
         }
 
         // 初期レンダリング
-        render();
+        document.addEventListener('DOMContentLoaded', () => {
+            render();
+        });
     </script>
 </body>
 </html>
