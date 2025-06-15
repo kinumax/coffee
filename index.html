@@ -63,6 +63,7 @@
             searchQuery: '',
             recordingTime: 0,
             recordingTimer: null,
+            isDarkMode: false,
             
             featuredShows: [
                 {
@@ -131,7 +132,9 @@
             MessageCircle: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>',
             Share2: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.367 2.684 3 3 0 00-5.367-2.684z"/></svg>',
             Volume2: '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M11 5L6 9H2v6h4l5 4V5z"/></svg>',
-            Coffee: '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-8a2 2 0 00-2 2v2m12 0H4m12 0l1.5 8.5a1.5 1.5 0 01-1.5 1.5H8a1.5 1.5 0 01-1.5-1.5L8 6m4 0V4m0 0h4m-4 0H8"/></svg>'
+            Coffee: '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-8a2 2 0 00-2 2v2m12 0H4m12 0l1.5 8.5a1.5 1.5 0 01-1.5 1.5H8a1.5 1.5 0 01-1.5-1.5L8 6m4 0V4m0 0h4m-4 0H8"/></svg>',
+            Moon: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>',
+            Sun: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>'
         };
 
         // ユーティリティ関数
@@ -204,6 +207,11 @@
             }
         }
 
+        function handleDarkModeToggle() {
+            AppState.isDarkMode = !AppState.isDarkMode;
+            render();
+        }
+
         function updateRecordingTime() {
             const timeElement = document.getElementById('recording-time');
             if (timeElement) {
@@ -230,42 +238,48 @@
                 ? createIcon('Pause')
                 : createIcon('Play');
 
+            const cardBg = AppState.isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-amber-100';
+            const titleColor = AppState.isDarkMode ? 'text-gray-100' : 'text-gray-800';
+            const hostColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+            const statsColor = AppState.isDarkMode ? 'text-gray-400' : 'text-gray-500';
+            const avatarBg = AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-100';
+
             return `
-                <div class="bg-white rounded-lg shadow-sm border border-amber-100 p-4 mb-4 hover:shadow-md transition-shadow">
+                <div class="${cardBg} rounded-lg shadow-sm border p-3 mb-3 hover:shadow-md transition-shadow">
                     <div class="flex items-start space-x-3">
-                        <div class="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-xl">
+                        <div class="w-10 h-10 ${avatarBg} rounded-full flex items-center justify-center text-lg">
                             ${show.avatar}
                         </div>
-                        <div class="flex-1">
+                        <div class="flex-1 min-w-0">
                             <div class="flex items-center space-x-2 mb-1">
                                 ${liveIndicator}
-                                <span class="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded-full">
+                                <span class="text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                                     ${show.category}
                                 </span>
                             </div>
-                            <h3 class="font-semibold text-gray-800 mb-1">${show.title}</h3>
-                            <p class="text-sm text-gray-600 mb-2">by ${show.host}</p>
+                            <h3 class="font-medium ${titleColor} mb-0.5 text-sm leading-tight">${show.title}</h3>
+                            <p class="text-xs ${hostColor} mb-2">by ${show.host}</p>
                             <div class="flex items-center justify-between">
-                                <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <div class="flex items-center space-x-3 text-xs ${statsColor}">
                                     <span class="flex items-center space-x-1">
                                         ${createIcon('Volume2')}
                                         <span>${formatNumber(show.listeners)}</span>
                                     </span>
                                     <span>${show.duration}</span>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <button onclick="handleLike(${show.id})" class="p-2 text-gray-400 hover:text-red-500 transition-colors flex items-center space-x-1">
+                                <div class="flex items-center space-x-1">
+                                    <button onclick="handleLike(${show.id})" class="p-1.5 text-gray-400 hover:text-red-500 transition-colors flex items-center space-x-1">
                                         ${createIcon('Heart')}
                                         <span class="text-xs">${show.likes}</span>
                                     </button>
-                                    <button class="p-2 text-gray-400 hover:text-blue-500 transition-colors flex items-center space-x-1">
+                                    <button class="p-1.5 text-gray-400 hover:text-blue-500 transition-colors flex items-center space-x-1">
                                         ${createIcon('MessageCircle')}
                                         <span class="text-xs">${show.comments}</span>
                                     </button>
-                                    <button class="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                                    <button class="p-1.5 text-gray-400 hover:text-gray-600 transition-colors">
                                         ${createIcon('Share2')}
                                     </button>
-                                    <button onclick="handlePlay(${show.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-full transition-colors">
+                                    <button onclick="handlePlay(${show.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-1.5 rounded-full transition-colors">
                                         ${playButtonIcon}
                                     </button>
                                 </div>
@@ -278,7 +292,7 @@
 
         function createHeader() {
             const recordingSection = AppState.isRecording ? `
-                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                <div class="bg-red-50 border border-red-200 rounded-lg p-3 mb-4 ${AppState.isDarkMode ? 'bg-red-900 border-red-700' : ''}">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-2">
                             <div class="flex space-x-1">
@@ -286,9 +300,9 @@
                                 <div class="w-1 h-4 bg-red-500 rounded wave-animation" style="animation-delay: 200ms"></div>
                                 <div class="w-1 h-4 bg-red-500 rounded wave-animation" style="animation-delay: 400ms"></div>
                             </div>
-                            <span class="text-red-600 font-semibold">録音中...</span>
+                            <span class="text-red-600 font-semibold ${AppState.isDarkMode ? 'text-red-400' : ''}">録音中...</span>
                         </div>
-                        <span id="recording-time" class="text-red-600 font-mono">${formatTime(AppState.recordingTime)}</span>
+                        <span id="recording-time" class="text-red-600 font-mono ${AppState.isDarkMode ? 'text-red-400' : ''}">${formatTime(AppState.recordingTime)}</span>
                     </div>
                 </div>
             ` : '';
@@ -297,22 +311,33 @@
                 ? 'bg-red-500 text-white recording-pulse'
                 : 'bg-amber-500 hover:bg-amber-600 text-white';
 
+            const headerBg = AppState.isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-amber-100';
+            const titleColor = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-800';
+            const iconColor = AppState.isDarkMode ? 'text-amber-400' : 'text-amber-600';
+            const inputBg = AppState.isDarkMode ? 'bg-gray-800 border-gray-600 text-gray-100 placeholder-gray-400' : 'border-amber-200';
+            const searchIconColor = AppState.isDarkMode ? 'text-gray-400' : 'text-gray-400';
+
             return `
-                <div class="bg-white shadow-sm border-b border-amber-100 p-4">
+                <div class="${headerBg} shadow-sm border-b p-4">
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center space-x-2">
-                            ${createIcon('Coffee', 'text-amber-600')}
-                            <h1 class="text-2xl font-bold text-amber-800">Coffee</h1>
+                            ${createIcon('Coffee', iconColor)}
+                            <h1 class="text-2xl font-bold ${titleColor}">Coffee</h1>
                         </div>
-                        <button onclick="handleRecord()" class="p-3 rounded-full transition-all ${recordButtonClass}">
-                            ${createIcon('Mic')}
-                        </button>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="handleDarkModeToggle()" class="p-2 rounded-full ${AppState.isDarkMode ? 'text-gray-300 hover:text-gray-100' : 'text-gray-600 hover:text-gray-800'} transition-colors">
+                                ${AppState.isDarkMode ? createIcon('Sun') : createIcon('Moon')}
+                            </button>
+                            <button onclick="handleRecord()" class="p-3 rounded-full transition-all ${recordButtonClass}">
+                                ${createIcon('Mic')}
+                            </button>
+                        </div>
                     </div>
                     
                     ${recordingSection}
 
                     <div class="relative">
-                        <div class="absolute left-3 top-3 text-gray-400">
+                        <div class="absolute left-3 top-3 ${searchIconColor}">
                             ${createIcon('Search')}
                         </div>
                         <input
@@ -320,7 +345,7 @@
                             placeholder="番組やパーソナリティを検索"
                             value="${AppState.searchQuery}"
                             oninput="handleSearch(this.value)"
-                            class="w-full pl-10 pr-4 py-2 border border-amber-200 rounded-full focus:outline-none focus:ring-2 focus:ring-amber-300"
+                            class="w-full pl-10 pr-4 py-2 border rounded-full focus:outline-none focus:ring-2 focus:ring-amber-300 ${inputBg}"
                         />
                     </div>
                 </div>
@@ -328,12 +353,18 @@
         }
 
         function createMainContent() {
+            const contentBg = AppState.isDarkMode ? '' : '';
+            const titleColor = AppState.isDarkMode ? 'text-gray-100' : 'text-gray-800';
+            
             if (AppState.currentTab === 'home') {
-                const categoryButtons = AppState.categories.map(category =>
-                    `<button class="flex-shrink-0 px-4 py-2 bg-white border border-amber-200 rounded-full text-sm hover:bg-amber-50 transition-colors">
+                const categoryButtons = AppState.categories.map(category => {
+                    const buttonStyle = AppState.isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600' 
+                        : 'bg-white border-amber-200 hover:bg-amber-50';
+                    return `<button class="flex-shrink-0 px-4 py-2 border rounded-full text-sm transition-colors ${buttonStyle}">
                         ${category}
-                    </button>`
-                ).join('');
+                    </button>`;
+                }).join('');
 
                 const searchTitle = AppState.searchQuery
                     ? `検索結果: "${AppState.searchQuery}"`
@@ -342,26 +373,29 @@
                 const showCards = AppState.featuredShows.map(show => createShowCard(show)).join('');
 
                 return `
-                    <div class="p-4">
-                        <div class="flex space-x-2 mb-6 overflow-x-auto pb-2">
+                    <div class="p-4 ${contentBg}">
+                        <div class="flex space-x-2 mb-4 overflow-x-auto pb-2">
                             ${categoryButtons}
                         </div>
                         <div class="mb-6">
-                            <h2 class="text-lg font-semibold text-gray-800 mb-4">${searchTitle}</h2>
+                            <h2 class="text-lg font-semibold ${titleColor} mb-3">${searchTitle}</h2>
                             ${showCards}
                         </div>
                     </div>
                 `;
             } else if (AppState.currentTab === 'create') {
                 const buttonText = AppState.isRecording ? '録音を停止' : '録音を開始';
+                const iconBg = AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-200';
+                const descColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+                
                 return `
-                    <div class="p-4">
+                    <div class="p-4 ${contentBg}">
                         <div class="text-center py-8">
-                            <div class="w-24 h-24 bg-amber-200 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
+                            <div class="w-24 h-24 ${iconBg} rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
                                 🎙️
                             </div>
-                            <h2 class="text-xl font-semibold text-gray-800 mb-2">新しい番組を作成</h2>
-                            <p class="text-gray-600 mb-6">録音ボタンを押して配信を始めよう</p>
+                            <h2 class="text-xl font-semibold ${titleColor} mb-2">新しい番組を作成</h2>
+                            <p class="${descColor} mb-6">録音ボタンを押して配信を始めよう</p>
                             <button onclick="handleRecord()" class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full font-semibold transition-colors">
                                 ${buttonText}
                             </button>
@@ -369,14 +403,17 @@
                     </div>
                 `;
             } else if (AppState.currentTab === 'profile') {
+                const iconBg = AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-200';
+                const descColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+                
                 return `
-                    <div class="p-4">
+                    <div class="p-4 ${contentBg}">
                         <div class="text-center py-8">
-                            <div class="w-24 h-24 bg-amber-200 rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
+                            <div class="w-24 h-24 ${iconBg} rounded-full mx-auto mb-4 flex items-center justify-center text-3xl">
                                 👤
                             </div>
-                            <h2 class="text-xl font-semibold text-gray-800 mb-2">あなたのプロフィール</h2>
-                            <p class="text-gray-600 mb-6">番組を作成してリスナーとつながろう</p>
+                            <h2 class="text-xl font-semibold ${titleColor} mb-2">あなたのプロフィール</h2>
+                            <p class="${descColor} mb-6">番組を作成してリスナーとつながろう</p>
                             <button class="bg-amber-500 hover:bg-amber-600 text-white px-6 py-3 rounded-full font-semibold transition-colors">
                                 プロフィールを編集
                             </button>
@@ -391,18 +428,28 @@
             if (!AppState.currentShow) return '';
 
             const playButtonIcon = AppState.isPlaying ? createIcon('Pause') : createIcon('Play');
+            const playerBg = AppState.isDarkMode ? 'bg-gray-800 border-gray-600' : 'bg-white border-amber-200';
+            const titleColor = AppState.isDarkMode ? 'text-gray-100' : 'text-gray-800';
+            const hostColor = AppState.isDarkMode ? 'text-gray-300' : 'text-gray-600';
+            const avatarBg = AppState.isDarkMode ? 'bg-gray-700' : 'bg-amber-100';
 
             return `
-                <div class="fixed bottom-20 left-4 right-4 max-w-md mx-auto bg-white rounded-lg shadow-lg border border-amber-200 p-4">
+                <div class="fixed bottom-20 left-4 right-4 max-w-md mx-auto ${playerBg} rounded-lg shadow-lg border p-4">
                     <div class="flex items-center space-x-3">
-                        <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                        <div class="w-10 h-10 ${avatarBg} rounded-full flex items-center justify-center">
                             ${AppState.currentShow.avatar}
                         </div>
                         <div class="flex-1 min-w-0">
-                            <p class="font-semibold text-sm text-gray-800 truncate">${AppState.currentShow.title}</p>
-                            <p class="text-xs text-gray-600 truncate">${AppState.currentShow.host}</p>
+                            <p class="font-semibold text-sm ${titleColor} truncate">${AppState.currentShow.title}</p>
+                            <p class="text-xs ${hostColor} truncate">${AppState.currentShow.host}</p>
                         </div>
                         <button onclick="handlePlay(${AppState.currentShow.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-full transition-colors">
+                            ${playButtonIcon}
+                        </button>
+                    </div>
+                </div>
+            `;
+        }.currentShow.id})" class="bg-amber-500 hover:bg-amber-600 text-white p-2 rounded-full transition-colors">
                             ${playButtonIcon}
                         </button>
                     </div>
